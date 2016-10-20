@@ -24,17 +24,29 @@ class JobNode:
 	def __init__(self,whoami,input_keys,func,output_keys):
 		self._myname=whoami
 		# keys to check DB
-		self._input_key_port=input_keys # keys = dictionary of  variable_name: list_of_link_id
-		self._output_key_portlist=output_keys # keys = dictionary of  variable_name: list_of_link_id 
+		#self._input_key_port=input_keys # keys = dictionary of  variable_name: list_of_link_id
+		self._input_key_port={}
+		for key in input_keys:
+			self._input_key_port[key]=""
+		#self._output_key_portlist=output_keys # keys = dictionary of  variable_name: list_of_link_id 
+		self._output_key_portlist={}
+		for key in output_keys:
+			self._output_key_portlist[key]=[]
+
+		# values
+		self._input_values={}
+		for key in input_keys:
+			self._input_values[key]=""
+		self._output_values={}
+		for key in output_keys:
+			self._output_values[key]=""
+
 		# function to be called
 		self._func=func
-		# save values from DB
-		self._input_values={}  # dictionary of variable name : value
-		self._output_values={}
-
 		self._finished=0
 
 	def operation_OR(self):
+		    print "enter",self.operation_OR.__name__
 		    db=simpledb
 		    values={}
                     found=0
@@ -50,13 +62,27 @@ class JobNode:
                         id_=self._input_key_port[key]
                         if id_ in db:
 				values[id_]=db[id_]
+				self._input_values[key]= values[id_]
 				found= 1
 
+		# collect data
+		    values2=[]
+		    for v in values:
+				values2.append(values[v])
+
 	  	    if found:
-				for id_ in outputid:
-					db[id_]=values
+			for key in self._output_values: 
+				self._output_values[key]=values2
+			for id_ in outputid:
+				db[id_]=values2
 
 		    return found
+
+	def operation_OUTPUT(self):
+		    print "enter",self.operation_OUTPUT.__name__
+		    self.port2inputvalue()
+		    print self._input_values
+
 
 
 	def check_and_start(self):
@@ -66,6 +92,10 @@ class JobNode:
 		if isinstance(self._func,basestring):
 			if self._func=="OR":
 				found=self.operation_OR()
+				self._finished=1
+			elif self._func=="OUTPUT":
+				found=self.operation_OUTPUT()
+				self._finished=1
 		else:
 		    found=1
 		    for key in self._input_key_port:
@@ -75,21 +105,48 @@ class JobNode:
 			else:
 				found=found and 0 
 		    if found:
-			print self._input_key_port
-			print self._output_key_portlist
 			if self._finished==0:
-				self._func(self._input_key_port,self._output_key_portlist)
+				self.port2inputvalue()
+				self._output_values = self._func(self._input_values,self._output_values)
+				print self.check_and_start.__name__, "output_values=",self._output_values
+				self.outputvalue2port()
 				self._finished=1
 		return found 
 
+        def port2inputvalue(self,errorstop=False):
+		print "coming",self.port2inputvalue.__name__
+        	for key in self._input_key_port:
+			port=self._input_key_port[key]
+			if port in simpledb:
+				value = simpledb[port]
+				self._input_values[key]=value
+			else:
+			    if errorstop:
+				print "failed to find",key, "in self._input_values"
+				print "name=",self._myname
+				print "in ", self.port2inputvalue.__name__
+				sys.exit(500000)
+		print self.port2inputvalue.__name__, "inputvalue=",self._input_values
+
+	def outputvalue2port(self):
+		print "coming",self.outputvalue2port.__name__
+		print self.outputvalue2port.__name__, "outputvalue=",self._output_values
+        	for key in self._output_values: 
+                	value=self._output_values[key]
+                	print "key=",key,"values",value
+                	for port in self._output_key_portlist[key] :
+                        	simpledb[ port ] = value
+
 	def force_start(self):
-		if self._finished==0:
-                	self._func(self._input_key_port,self._output_key_portlist)
-			self._finished=1
+                self._output_values = self._func(self._input_values,self._output_values)
+                self.outputvalue2port()
+                self._finished=1
 		return 1
 
 	def show(self):
-		print self._myname,self._input_key_port,self._output_key_portlist,self._input_values,self._output_values
+		#print self._myname,self._input_key_port,self._output_key_portlist,self._input_values,self._output_values, self._finished
+		print self._myname,self._input_values,self._output_values, self._finished
+			
 
 
 class JobNetwork:
@@ -117,7 +174,7 @@ class JobNetwork:
 			sys.exit(1001)
 
 
-class JobList():
+class JobnodeList():
 	""" a list of jobode"""
 	def __init__(self):
 		self._list=[]
@@ -126,6 +183,9 @@ class JobList():
 	def check_and_start(self):
 		for node in self._list:
 			node.check_and_start()
+	def show(self):
+		for x in self._list:
+			x.show()
 
 class RunnableNode:
 	""" accept input and output """
@@ -152,72 +212,79 @@ class RunnableNode:
                         simpledb[id_]=output_values[key]
 
 def test3():
-	joblist=JobList()
+	nodelist=JobnodeList()
 
-        node1= JobNode ("node1", {},funcA,{"x":[],"y":[]} )
-        node2= JobNode ("node2", {"a":"","b":""},funcB,{"x":[]} )
-        node3= JobNode ("node3", {"a":"","b":""},"OR",{"x":["100"]} )
+        node1= JobNode ("node1", [],funcA,["x","y"] )
+        node2= JobNode ("node2", ["a","b"],funcB,["x"] )
+        node3= JobNode ("node3", ["a","b"],"OR",["x"])
+	node4= JobNode("node4", ["a"],"OUTPUT",[]) 
+	node5= JobNode("node5",["a"],funcC,["x"])
 
         graph=JobNetwork()
         graph.define([node1,"x"],[node2,"a"])
         graph.define([node1,"y"],[node2,"b"])
 	graph.define([node1,"y"],[node3,"a"])
-	graph.define([node2,"x"],[node3,"b"])
+	graph.define([node5,"x"],[node3,"b"])
+	graph.define([node3,"x"],[node4,"a"])
 
-	print "-------------------------"
-	node1.show()
-	node2.show()
-	node3.show()
+	print "-------------------------node status"
+	nodelist.show()
 	print "simpledb",simpledb
 
-	joblist._list.append(node1)
-	joblist._list.append(node2)
-	joblist._list.append(node3)
+	nodelist._list.append(node1)
+	nodelist._list.append(node2)
+	nodelist._list.append(node3)
+	nodelist._list.append(node4)
+	nodelist._list.append(node5)
 
 	print "-------------------------node1.sart()"
+	node1.show()
 	node1.force_start()
-	#node2.check_and_start()
-	joblist.check_and_start()
-
-
-	node1.show()
-	node2.show()
-	node3.show()
 	print "simpledb",simpledb
 
-	joblist.check_and_start()
+	for i in range(3):
+		nodelist.check_and_start()
 
-	print "-------------------------"
-	node1.show()
-	node2.show()
-	node3.show()
-	print "simpledb",simpledb
+		print "-------------------------node status",i
+		nodelist.show()
+		print "simpledb",simpledb
 
 def funcA(*args):
 	print "running ",funcA.__name__
-	input_keys= args[0]
-	for key in input_keys:
-		print "key=",key,"inputport",input_keys[key]
-	output_keys= args[1]
+
+	print args
 	i=1
-        for key in output_keys:
-                print "key=",key,"outputport",output_keys[key]
-		for port in output_keys[key] : 
-			simpledb[ port ] = i*10
-		 	i+=1
+	output={}
+	for x in args[1]:
+		output[x]=str(i*100)
+		i+=1
+	print funcA.__name__,"output=",output
+	return output
 
 def funcB(*args):
 	print "running ",funcB.__name__
-        input_keys= args[0]
-        for key in input_keys:
-                print "key=",key,"inputport",input_keys[key]
-        output_keys= args[1]
+
+	print args
 	i=1
-        for key in output_keys:
-                print "key=",key,"outputport",output_keys[key]
-		for port in output_keys[key] : 
-			simpledb[ port ] = i*100
-			i+=1
+	output={}
+	for x in args[1]:
+		print "arg=(",x,")"
+		output[x]=str(i*10)
+	print funcB.__name__,"output=",output
+	return output
+
+def funcC(*args):
+        print "running ",funcB.__name__
+
+        print args
+        i=1
+        output={}
+        for x in args[1]:
+                print "arg=(",x,")"
+                output[x]=str(i*10)
+        print funcB.__name__,"output=",output
+        return output
+
 
 test3()
 
