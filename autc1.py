@@ -21,11 +21,46 @@ class JobNode:
 		self._input_values={}
 		self._output_values={}
 
+
+	def operation_OR(self):
+		    print "oepration_OR",self._myname
+		    db=simpledb
+		    values={}
+                    found=0
+		    for key in self._output_keys:
+				outputid = self._output_keys[key]
+				if len(outputid)==0:
+					print "error in operation_OR"
+					print "outputid is null"
+					sys.exit(100000)
+	
+                    for key in self._input_keys:
+                        id_=self._input_keys[key]
+                        print "check",key,"and",id_
+                        if id_ in db:
+				values[id_]=db[id_]
+				print "id=",id_,"value=",values
+				print "_outputkeys=",self._output_keys
+				found= 1
+
+	  	    if found:
+				print "found and set outputid=", outputid, "value=",values
+				db[outputid]=values
+		    return found
+
+
 	def check_and_start(self):
 		db=simpledb
+		found=0
 		print "check",self._input_keys
-		found=1
-		for key in self._input_keys:
+
+		if isinstance(self._func,basestring):
+			print "string",self._func
+			if self._func=="OR":
+				found=self.operation_OR()
+		else:
+		    found=1
+		    for key in self._input_keys:
 			id_=self._input_keys[key]
 			print "check",key,"and",id_
 			if id_ in db:
@@ -33,8 +68,8 @@ class JobNode:
 				found=found and 1
 			else:
 				found=found and 0 
-		print "start?=",found
-		if found:
+		    print "start?=",found
+		    if found:
 			print self._myname,"start func"
 			self._func()
 		return found 
@@ -82,15 +117,20 @@ def test3():
 
         node1= JobNode ("node1", {"a":"","b":"","c":""},funcA,{"x":"","y":""} )
         node2= JobNode ("node2", {"a":"","b":""},funcB,{"x":""} )
+        node3= JobNode ("node3", {"a":"","b":""},"OR",{"x":"100"} )
 
         graph=JobNetwork()
         graph.define("1",[node1,"x"],[node2,"a"])
         graph.define("2",[node1,"x"],[node2,"b"])
+	graph.define("3",[node1,"y"],[node3,"a"])
+	graph.define("4",[node2,"x"],[node3,"b"])
+
 	print "node1"; node1.show()
 	print "node2"; node2.show()
 
 	joblist._list.append(node1)
 	joblist._list.append(node2)
+	joblist._list.append(node3)
 
 	#node2.check_and_start()
 	joblist.check_and_start()
@@ -99,39 +139,20 @@ def test3():
 	#node2.check_and_start()
 	joblist.check_and_start()
 
+	simpledb["3"]="300"
+	simpledb["4"]="400"
 
-def foo1():
-		if parent_output_key in parent_node._output_values:
-			child_node._input_values[child_input_key]= parent_node._output_values[parent_output_key]
+	print "simpledb",simpledb
 
+	joblist.check_and_start()
+
+	print "simpledb",simpledb
 
 def funcA():
 	print "running fundA"
 def funcB():
 	print "running fundB"
 
-def test2():
-	graph=JobNetwork()
-	node1= JobNode ( ("a","b","c"),funcA(),("x","y") )
-	node2= JobNode ( ("a","b"),funcB(),("x") )
-	node1._output_values["x"]="run"
-	graph.set(node1,"x",node2,"a") 
-	print node1._output_values
-	print node2._input_values
-
-		
-def test1():
-	"""test of JobNode"""
-	dica={}
-	dica["a"]="input"
-	dica["b"]="input2"
-	dicb={}
-	dicb["a"]="output"
-
-	node1= JobNode ( ("a","b","c"),funcA,("x") )
-	node1.check_start(dica)
-	node2= JobNode ( ("a","b"),funcB,("x") )
-	node2.check_start(dica)
 
 test3()
 
