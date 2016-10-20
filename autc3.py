@@ -5,7 +5,8 @@ import hashlib
 import pymongo
 import time
 import random
-from multiprocessing import Process
+from multiprocessing import Process,Pool
+import copy
 
 #
 # almost the same as multiporcess.Queue
@@ -199,12 +200,6 @@ class JobNode:
 				simpledb.insert_one( {"link_id": port, "value":value } )
 		return 1
 
-	def force_start(self):
-                self._output_values = self._func(self._input_values,self._output_values)
-                self.outputvalue2port()
-                self._finished=1
-		return 1
-
 	def show(self):
 		print self._myname,self._func,self._input_values,self._output_values, self._finished
 			
@@ -243,14 +238,14 @@ class JobnodeList():
 	def append(self,node):
 		self._list.append(node)
 	def check_and_start(self):
-	    serial=True
-	    if serial:
+	    mode="serial"
+	    if mode=="serial":
 		for node in self._list:
 			ret= node.check_and_start()
 			print self.check_and_start.__name__,"ret=",ret
 			if ret==1:
 				return 
-	    else:
+	    elif mode=="process":
 		plist=[]
 		for node in self._list:
 			p=Process(target= node.check_and_start, args=() )
@@ -260,6 +255,10 @@ class JobnodeList():
 		for p in plist:
 			p.join(1.0)
 
+	    elif mode=="pool":
+		pool=Pool(processes=3)
+		for node in self._list:
+			pool.apply_async(node.check_and_start, () )
 
 			
 	def show(self):
@@ -336,13 +335,13 @@ class JobnodeList():
 
 def test3():
 
-        node1= JobNode("node1", [],funcA,["x","y"] )
-        node2= JobNode("node2", ["a","b"],funcB,["x"] )
+        node1= JobNode("node1", [],func_node1,["x","y"] )
+        node2= JobNode("node2", ["a","b"],func_node2,["x"] )
         node3= JobNode("node3", ["a","b"],"OR",["x"])
 	node4= JobNode("node4", ["a"],"OUTPUT",[]) 
-	node5= JobNode("node5",["a"],funcC,["x"])
-	node6= JobNode("node6",["a"],funcD,["z"])
-	node7= JobNode("node7",["a"],funcE,["x"])
+	node5= JobNode("node5",["a"],func_node5,["x"])
+	node6= JobNode("node6",["a"],func_node6,["z"])
+	node7= JobNode("node7",["a"],func_node7,["x"])
 
         graph=JobNetwork()
         graph.define([node1,"x"],[node2,"a"])
@@ -364,13 +363,12 @@ def test3():
 
 	print "-------------------------node1.sart()"
 	node1.show()
-	node1.force_start()
 	simpledb.show()
 
 
 	#nodelist.check_and_start()
 
-	for i in range(5):
+	for i in range(6):
 		nodelist.check_and_start()
 
 		print "-------------------------node status",i
@@ -378,7 +376,7 @@ def test3():
 		simpledb.show()
 
 	
-	if False:
+	if True:
 	    with open("graph.dot","w") as f:
 		s=nodelist.graphviz()
 		f.write(s)
@@ -387,21 +385,23 @@ def test3():
 
 maxtime=5.0
 
-def funcA(*args):
-	print "running ",funcA.__name__
+def func_node1(*args):
+	print "running ",func_node1.__name__
 
 	print args
 	time.sleep(random.random()*maxtime)
-	i=1
+	input_=[]
 	output={}
 	for x in args[1]:
-		output[x]=str(i*100)
-		i+=1
-	print funcA.__name__,"output=",output
+                v=args[1][x]
+                i=copy.deepcopy(input_)
+                i.extend([func_node1.__name__,x])
+                output[x]="+".join(i)
+	print func_node1.__name__,"output=",output
 	return output
 
-def funcB(*args):
-	print "running ",funcB.__name__
+def func_node2(*args):
+	print "running ",func_node2.__name__
 
 	print args
 	time.sleep(random.random()*maxtime)
@@ -412,14 +412,14 @@ def funcB(*args):
 	output={}
 	for x in args[1]:
 		v=args[1][x]
-		i=input_
-		i.extend([funcB.__name__,x])
+		i=copy.deepcopy(input_)
+		i.extend([func_node2.__name__,x])
 		output[x]="+".join(i)
-	print funcB.__name__,"output=",output
+	print func_node2.__name__,"output=",output
 	return output
 
-def funcC(*args):
-        print "running ",funcC.__name__
+def func_node5(*args):
+        print "running ",func_node5.__name__
 
 	print args
 	time.sleep(random.random()*maxtime)
@@ -430,15 +430,15 @@ def funcC(*args):
 	output={}
 	for x in args[1]:
 		v=args[1][x]
-		i=input_
-		i.extend([funcC.__name__,x])
+		i=copy.deepcopy(input_)
+		i.extend([func_node5.__name__,x])
 		output[x]="+".join(i)
-	print funcC.__name__,"output=",output
+	print func_node5.__name__,"output=",output
 	return output
 
 
-def funcD(*args):
-        print "running ",funcD.__name__
+def func_node6(*args):
+        print "running ",func_node6.__name__
 
 	print args
 	time.sleep(random.random()*maxtime)
@@ -450,17 +450,17 @@ def funcD(*args):
 	output={}
 	for x in args[1]:
 		v=args[1][x]
-		i=input_
-		i.extend([funcD.__name__,x])
+		i=copy.deepcopy(input_)
+		i.extend([func_node6.__name__,x])
 		output[x]="+".join(i)
-	print funcD.__name__,"output=",output
+	print func_node6.__name__,"output=",output
 	return output
 
 
 
 
-def funcE(*args):
-        print "running ",funcE.__name__
+def func_node7(*args):
+        print "running ",func_node7.__name__
 
 	time.sleep(random.random()*maxtime)
 
@@ -472,32 +472,12 @@ def funcE(*args):
 	output={}
 	for x in args[1]:
 		v=args[1][x]
-		i=input_
-		i.extend([funcE.__name__,x])
+		i=copy.deepcopy(input_)
+		i.extend([func_node7.__name__,x])
 		output[x]="+".join(i)
-	print funcE.__name__,"output=",output
+	print func_node7.__name__,"output=",output
 	return output
 
-
-
-def funcWait(*args):
-        print "running ",funcE.__name__
-
-	print args
-
-	
-	input_=[]
-	for x in args[0]:
-		v=args[0][x]
-		input_.append(v)
-	output={}
-	for x in args[1]:
-		v=args[1][x]
-		i=input_
-		i.extend([funcE.__name__,x])
-		output[x]="+".join(i)
-	print funcE.__name__,"output=",output
-	return output
 
 
 test3()
