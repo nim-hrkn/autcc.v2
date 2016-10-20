@@ -238,14 +238,14 @@ class JobnodeList():
 	def append(self,node):
 		self._list.append(node)
 	def check_and_start(self):
-	    mode="serial"
+	    mode="Process"
 	    if mode=="serial":
 		for node in self._list:
 			ret= node.check_and_start()
 			print self.check_and_start.__name__,"ret=",ret
 			if ret==1:
 				return 
-	    elif mode=="process":
+	    elif mode=="Process":
 		plist=[]
 		for node in self._list:
 			p=Process(target= node.check_and_start, args=() )
@@ -253,12 +253,19 @@ class JobnodeList():
 			p.start()
 
 		for p in plist:
-			p.join(1.0)
+			p.join(10.0)
 
-	    elif mode=="pool":
+	    elif mode=="Pool":
 		pool=Pool(processes=3)
+		plist=[]
 		for node in self._list:
-			pool.apply_async(node.check_and_start, () )
+			plist.append( pool.apply_async(node.check_and_start, () ))
+		print "pool wait()"
+		for p in plist:
+			print "p.ready=",p.ready()
+			p.wait(1.0)
+			print "p.ready=",p.ready()
+			print "--------------------------"
 
 			
 	def show(self):
@@ -376,7 +383,7 @@ def test3():
 		simpledb.show()
 
 	
-	if True:
+	if False:
 	    with open("graph.dot","w") as f:
 		s=nodelist.graphviz()
 		f.write(s)
