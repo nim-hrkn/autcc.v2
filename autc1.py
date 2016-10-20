@@ -34,7 +34,6 @@ class JobNode:
 
 
 	def operation_OR(self):
-		    print "oepration_OR",self._myname
 		    db=simpledb
 		    values={}
                     found=0
@@ -48,15 +47,11 @@ class JobNode:
 	
                     for key in self._input_keys:
                         id_=self._input_keys[key]
-                        print "check",key,"and",id_
                         if id_ in db:
 				values[id_]=db[id_]
-				print "id=",id_,"value=",values
-				print "_outputkeys=",self._output_keys
 				found= 1
 
 	  	    if found:
-				print "found and set outputid=", outputid, "value=",values
 				for id_ in outputid:
 					db[id_]=values
 
@@ -66,27 +61,25 @@ class JobNode:
 	def check_and_start(self):
 		db=simpledb
 		found=0
-		print "check",self._input_keys
 
 		if isinstance(self._func,basestring):
-			print "string",self._func
 			if self._func=="OR":
 				found=self.operation_OR()
 		else:
 		    found=1
 		    for key in self._input_keys:
 			id_=self._input_keys[key]
-			print "check",key,"and",id_
 			if id_ in db:
-				print" found", key
 				found=found and 1
 			else:
 				found=found and 0 
-		    print "start?=",found
 		    if found:
-			print self._myname,"start func"
-			self._func()
+			self._func(self._input_keys,self._output_keys)
 		return found 
+
+	def force_start(self):
+                self._func(self._input_keys,self._output_keys)
+		return 1
 
 	def show(self):
 		print self._myname,self._input_keys,self._output_keys,self._input_values,self._output_values
@@ -98,7 +91,7 @@ class JobNetwork:
 	def __init__(self):
 		self._network=()
 		pass
-	def define(self,id_,parent,child):
+	def define(self,parent,child,id_=hash_generator.get()):
 		parent_node=parent[0]
 		parent_key=parent[1]
 		if parent_key in parent_node._output_keys:
@@ -120,7 +113,6 @@ class JobList():
 	def __init__(self):
 		self._list=[]
 	def append(self,node):
-		print "call append",node
 		self._list.append(node)
 	def check_and_start(self):
 		for node in self._list:
@@ -129,20 +121,20 @@ class JobList():
 def test3():
 	joblist=JobList()
 
-        node1= JobNode ("node1", {"a":"","b":"","c":""},funcA,{"x":[],"y":[]} )
+        node1= JobNode ("node1", {},funcA,{"x":[],"y":[]} )
         node2= JobNode ("node2", {"a":"","b":""},funcB,{"x":[]} )
         node3= JobNode ("node3", {"a":"","b":""},"OR",{"x":["100"]} )
 
         graph=JobNetwork()
-        graph.define(hash_generator.get(),[node1,"x"],[node2,"a"])
-        graph.define("2",[node1,"y"],[node2,"b"])
-	graph.define("3",[node1,"y"],[node3,"a"])
-	graph.define("4",[node2,"x"],[node3,"b"])
+        graph.define([node1,"x"],[node2,"a"])
+        graph.define([node1,"y"],[node2,"b"])
+	graph.define([node1,"y"],[node3,"a"])
+	graph.define([node2,"x"],[node3,"b"])
 
-	print "node1"; node1.show()
-	print "node2"; node2.show()
-	print "node3"; node3.show()
-
+	node1.show()
+	node2.show()
+	node3.show()
+	print "simpledb",simpledb
 
 	joblist._list.append(node1)
 	joblist._list.append(node2)
@@ -159,20 +151,39 @@ def test3():
 	#node2.check_and_start()
 	joblist.check_and_start()
 
-	simpledb["3"]="300"
-	simpledb["4"]="400"
+        idlist=node2._output_keys["x"]
+        for id_ in idlist:
+                simpledb[id_]="400"
 
+	node1.show()
+	node2.show()
+	node3.show()
 	print "simpledb",simpledb
 
 	joblist.check_and_start()
 
+	node1.show()
+	node2.show()
+	node3.show()
 	print "simpledb",simpledb
 
-def funcA():
-	print "running fundA"
-def funcB():
-	print "running fundB"
+def funcA(*args):
+	print "running ",funcA.__name__
+	input_keys= args[0]
+	for key in input_keys:
+		print "key=",key,"inputport",input_keys[key]
+	output_keys= args[1]
+        for key in output_keys:
+                print "key=",key,"outputport",output_keys[key]
 
+def funcB(*args):
+	print "running ",funcB.__name__
+        input_keys= args[0]
+        for key in input_keys:
+                print "key=",key,"inputport",input_keys[key]
+        output_keys= args[1]
+        for key in output_keys:
+                print "key=",key,"outputport",output_keys[key]
 
 test3()
 
