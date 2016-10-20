@@ -197,6 +197,73 @@ class JobnodeList():
 		for x in self._list:
 			x.show()
 
+	def graphviz(self):
+		str0="""digraph graph_name {
+
+  graph [
+    charset = "UTF-8",
+    bgcolor = "#EDEDED",
+    rankdir = TB,
+    nodesep = 1.1,
+    ranksep = 1.05
+  ];
+
+  node [
+    shape = record,
+    fontname = "Migu 1M",
+    fontsize = 12,
+  ];
+"""
+		s=""
+		for node in self._list:
+			t= node._myname
+			str1="{"
+			input_=[]
+			for i in node._input_key_port:
+				input_.append("<i_"+i+">"+i)
+			str1+= "|".join(input_)
+			str1+="}"
+			str2=node._myname
+			style=""
+			if isinstance(node._func,basestring):
+				str2+="/"+node._func
+				if node._func=="OR":
+					style=", style=rounded"
+				elif node._func=="OUTPUT":
+					style=",  shape=\"invtriangle\" "
+			str3="{"
+			output_=[]
+                        for i in node._output_key_portlist:
+                                output_.append("<o_"+i+">"+i)
+                        str3+= "|".join(output_)
+                        str3+="}"
+			if node._func=="OUTPUT":
+				t+="  [ label=\""+node._myname+"/"+"|".join([i for i in node._input_key_port])+"\" "+style+" ];\n"
+			else:
+				t+=" [ label=\"{"+"|".join([str1,str2,str3])+"}\" "+style+" ];\n"
+
+			s+=t
+
+		for node in self._list:
+			for key in node._output_key_portlist:
+				for oport in node._output_key_portlist[key]:
+					iname,iport=self.find_inputlink(oport)
+					s+= node._myname+":o_"+key+ " -> "+ iname+":i_"+iport+";\n"
+					
+
+		return str0+s+"}"
+
+	def find_inputlink(self,oport):
+		for node in self._list:
+                        for key in node._input_key_port:
+				if oport== node._input_key_port[key]:
+					return node._myname,key
+
+		print self.find_inputlink,__name__,"failed to find input port"
+		print "inputport=", oport
+		sys.exit(40000)
+
+
 class RunnableNode:
 	""" accept input and output """
 	def __init__(self,args):
@@ -258,6 +325,13 @@ def test3():
 		print "-------------------------node status",i
 		nodelist.show()
 		print "simpledb",simpledb
+
+	
+	with open("graph.dot","w") as f:
+		s=nodelist.graphviz()
+		f.write(s)
+		print "graph.dot is made."
+
 
 def funcA(*args):
 	print "running ",funcA.__name__
