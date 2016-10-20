@@ -32,6 +32,7 @@ class JobNode:
 		self._input_values={}  # dictionary of variable name : value
 		self._output_values={}
 
+		self._finished=0
 
 	def operation_OR(self):
 		    db=simpledb
@@ -74,11 +75,17 @@ class JobNode:
 			else:
 				found=found and 0 
 		    if found:
-			self._func(self._input_keys,self._output_keys)
+			print self._input_keys
+			print self._output_keys
+			if self._finished==0:
+				self._func(self._input_keys,self._output_keys)
+				self._finished=1
 		return found 
 
 	def force_start(self):
-                self._func(self._input_keys,self._output_keys)
+		if self._finished==0:
+                	self._func(self._input_keys,self._output_keys)
+			self._finished=1
 		return 1
 
 	def show(self):
@@ -91,7 +98,9 @@ class JobNetwork:
 	def __init__(self):
 		self._network=()
 		pass
-	def define(self,parent,child,id_=hash_generator.get()):
+	def define(self,parent,child,id_=""):
+		if len(id_)==0:
+			id_=hash_generator.get()  # is is string 
 		parent_node=parent[0]
 		parent_key=parent[1]
 		if parent_key in parent_node._output_keys:
@@ -118,6 +127,30 @@ class JobList():
 		for node in self._list:
 			node.check_and_start()
 
+class RunnableNode:
+	""" accept input and output """
+	def __init__(self,args):
+		self._input_keys=args[0]
+		self._output_keys=args[1]
+
+		self._input_values={}
+		for key in self._input_keys:
+			id_=self._input_keys[key]
+			value=simpledb[id_]
+			self._input_values[key]=value
+
+		print "run"
+		print self._input_keys
+		print self._input_values
+
+		print self._output_keys
+
+	def writeoutput(self, outputvalues):
+                self._output_values={}
+                for key in self._output_keys:
+                        id_=self._output_keys[key]
+                        simpledb[id_]=output_values[key]
+
 def test3():
 	joblist=JobList()
 
@@ -131,6 +164,7 @@ def test3():
 	graph.define([node1,"y"],[node3,"a"])
 	graph.define([node2,"x"],[node3,"b"])
 
+	print "-------------------------"
 	node1.show()
 	node2.show()
 	node3.show()
@@ -140,20 +174,11 @@ def test3():
 	joblist._list.append(node2)
 	joblist._list.append(node3)
 
-	#node2.check_and_start()
-	joblist.check_and_start()
-	idlist=node1._output_keys["x"] 
-	for id_ in idlist:
-		simpledb[id_]="100"
-	idlist=node1._output_keys["y"] 
-	for id_ in idlist:
-		simpledb[id_]="200"
+	print "-------------------------node1.sart()"
+	node1.force_start()
 	#node2.check_and_start()
 	joblist.check_and_start()
 
-        idlist=node2._output_keys["x"]
-        for id_ in idlist:
-                simpledb[id_]="400"
 
 	node1.show()
 	node2.show()
@@ -162,6 +187,7 @@ def test3():
 
 	joblist.check_and_start()
 
+	print "-------------------------"
 	node1.show()
 	node2.show()
 	node3.show()
@@ -173,8 +199,12 @@ def funcA(*args):
 	for key in input_keys:
 		print "key=",key,"inputport",input_keys[key]
 	output_keys= args[1]
+	i=1
         for key in output_keys:
                 print "key=",key,"outputport",output_keys[key]
+		for port in output_keys[key] : 
+			simpledb[ port ] = i*10
+		 	i+=1
 
 def funcB(*args):
 	print "running ",funcB.__name__
@@ -182,8 +212,12 @@ def funcB(*args):
         for key in input_keys:
                 print "key=",key,"inputport",input_keys[key]
         output_keys= args[1]
+	i=1
         for key in output_keys:
                 print "key=",key,"outputport",output_keys[key]
+		for port in output_keys[key] : 
+			simpledb[ port ] = i*100
+			i+=1
 
 test3()
 
