@@ -5,8 +5,19 @@ import hashlib
 
 simpledb={}
 
-hash_generator=hashlib.md5()
-hash_generator.update("hiori kino")
+class hashGenerator:
+	def __init__(self):
+		self._hash_generator=hashlib.md5()
+		self._hash_generator.update("hiori kino")
+		self._i=0
+	def get(self):
+		self._i+=1
+		self._hash_generator.update(str(self._i))
+		return self._hash_generator.hexdigest()
+
+
+hash_generator=hashGenerator()
+
 
 class JobNode: 
 	""" job node definition """
@@ -27,6 +38,7 @@ class JobNode:
 		    db=simpledb
 		    values={}
                     found=0
+		# assume that len of _output_keys is 1
 		    for key in self._output_keys:
 				outputid = self._output_keys[key]
 				if len(outputid)==0:
@@ -120,7 +132,7 @@ def test3():
         node3= JobNode ("node3", {"a":"","b":""},"OR",{"x":"100"} )
 
         graph=JobNetwork()
-        graph.define("1",[node1,"x"],[node2,"a"])
+        graph.define(hash_generator.get(),[node1,"x"],[node2,"a"])
         graph.define("2",[node1,"x"],[node2,"b"])
 	graph.define("3",[node1,"y"],[node3,"a"])
 	graph.define("4",[node2,"x"],[node3,"b"])
