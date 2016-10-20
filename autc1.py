@@ -79,6 +79,7 @@ class JobNode:
 		    return found
 
 	def operation_OUTPUT(self):
+		    """ output opeartion"""
 		    print "enter",self.operation_OUTPUT.__name__
 		    self.port2inputvalue()
 		    print self._input_values
@@ -86,6 +87,7 @@ class JobNode:
 
 
 	def check_and_start(self):
+		""" check whether all the input are there and, then run function"""
 		first_status=self._finished
 		print "trying",self.check_and_start.__name__, self._myname,first_status
 		db=simpledb
@@ -220,13 +222,13 @@ class RunnableNode:
                         simpledb[id_]=output_values[key]
 
 def test3():
-	nodelist=JobnodeList()
 
         node1= JobNode ("node1", [],funcA,["x","y"] )
         node2= JobNode ("node2", ["a","b"],funcB,["x"] )
         node3= JobNode ("node3", ["a","b"],"OR",["x"])
 	node4= JobNode("node4", ["a"],"OUTPUT",[]) 
 	node5= JobNode("node5",["a"],funcC,["x"])
+	node6= JobNode("node6",["a"],funcD,["x"])
 
         graph=JobNetwork()
         graph.define([node1,"x"],[node2,"a"])
@@ -234,23 +236,23 @@ def test3():
 	graph.define([node1,"y"],[node3,"a"])
 	graph.define([node5,"x"],[node3,"b"])
 	graph.define([node3,"x"],[node4,"a"])
+	graph.define([node3,"x"],[node6,"a"])
 
-	print "-------------------------node status"
-	nodelist.show()
-	print "simpledb",simpledb
 
+	nodelist=JobnodeList()
 	nodelist._list.append(node1)
 	nodelist._list.append(node2)
 	nodelist._list.append(node3)
 	nodelist._list.append(node4)
 	nodelist._list.append(node5)
+	nodelist._list.append(node6)
 
 	print "-------------------------node1.sart()"
 	node1.show()
 	node1.force_start()
 	print "simpledb",simpledb
 
-	for i in range(3):
+	for i in range(4):
 		nodelist.check_and_start()
 
 		print "-------------------------node status",i
@@ -289,9 +291,22 @@ def funcC(*args):
         output={}
         for x in args[1]:
                 print "arg=(",x,")"
-                output[x]=str(i*10)
+                output[x]=str(i*1)
         print funcB.__name__,"output=",output
         return output
+
+def funcD(*args):
+        print "running ",funcB.__name__
+
+        print args
+        i=1
+        output={}
+        for x in args[1]:
+                print "arg=(",x,")"
+                output[x]=str(i*1000)
+        print funcB.__name__,"output=",output
+        return output
+
 
 
 test3()
