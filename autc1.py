@@ -24,12 +24,12 @@ class JobNode:
 	def __init__(self,whoami,input_keys,func,output_keys):
 		self._myname=whoami
 		# keys to check DB
-		self._input_keys=input_keys # key=list of [variable_name,id]
-		self._output_keys=output_keys
+		self._input_keys=input_keys # keys = dictionary of  variable_name: list_of_link_id
+		self._output_keys=output_keys # keys = dictionary of  variable_name: list_of_link_id 
 		# function to be called
 		self._func=func
 		# save values from DB
-		self._input_values={}
+		self._input_values={}  # dictionary of variable name : value
 		self._output_values={}
 
 
@@ -40,7 +40,7 @@ class JobNode:
                     found=0
 		# assume that len of _output_keys is 1
 		    for key in self._output_keys:
-				outputid = self._output_keys[key]
+				outputid = self._output_keys[key]  # outputid is a list 
 				if len(outputid)==0:
 					print "error in operation_OR"
 					print "outputid is null"
@@ -57,7 +57,9 @@ class JobNode:
 
 	  	    if found:
 				print "found and set outputid=", outputid, "value=",values
-				db[outputid]=values
+				for id_ in outputid:
+					db[id_]=values
+
 		    return found
 
 
@@ -100,7 +102,7 @@ class JobNetwork:
 		parent_node=parent[0]
 		parent_key=parent[1]
 		if parent_key in parent_node._output_keys:
-			parent_node._output_keys[parent_key] = id_
+			parent_node._output_keys[parent_key].append( id_ )
 		else:
 			print "failed to connect",parent ,"with", id
 			sys.exit(1000)
@@ -127,18 +129,20 @@ class JobList():
 def test3():
 	joblist=JobList()
 
-        node1= JobNode ("node1", {"a":"","b":"","c":""},funcA,{"x":"","y":""} )
-        node2= JobNode ("node2", {"a":"","b":""},funcB,{"x":""} )
-        node3= JobNode ("node3", {"a":"","b":""},"OR",{"x":"100"} )
+        node1= JobNode ("node1", {"a":"","b":"","c":""},funcA,{"x":[],"y":[]} )
+        node2= JobNode ("node2", {"a":"","b":""},funcB,{"x":[]} )
+        node3= JobNode ("node3", {"a":"","b":""},"OR",{"x":["100"]} )
 
         graph=JobNetwork()
         graph.define(hash_generator.get(),[node1,"x"],[node2,"a"])
-        graph.define("2",[node1,"x"],[node2,"b"])
+        graph.define("2",[node1,"y"],[node2,"b"])
 	graph.define("3",[node1,"y"],[node3,"a"])
 	graph.define("4",[node2,"x"],[node3,"b"])
 
 	print "node1"; node1.show()
 	print "node2"; node2.show()
+	print "node3"; node3.show()
+
 
 	joblist._list.append(node1)
 	joblist._list.append(node2)
@@ -146,8 +150,12 @@ def test3():
 
 	#node2.check_and_start()
 	joblist.check_and_start()
-	simpledb["1"]="100"
-	simpledb["2"]="200"
+	idlist=node1._output_keys["x"] 
+	for id_ in idlist:
+		simpledb[id_]="100"
+	idlist=node1._output_keys["y"] 
+	for id_ in idlist:
+		simpledb[id_]="200"
 	#node2.check_and_start()
 	joblist.check_and_start()
 
