@@ -1,3 +1,4 @@
+#!/usr/bin/env python 
 import sys
 import os
 import hashlib
@@ -86,8 +87,12 @@ class JobNode:
 
 
 	def check_and_start(self):
+		first_status=self._finished
+		print "trying",self.check_and_start.__name__, self._myname,first_status
 		db=simpledb
 		found=0
+		if self._finished==1:
+			return first_status+self._finished
 
 		if isinstance(self._func,basestring):
 			if self._func=="OR":
@@ -97,21 +102,21 @@ class JobNode:
 				found=self.operation_OUTPUT()
 				self._finished=1
 		else:
-		    found=1
-		    for key in self._input_key_port:
+		      found=1
+		      for key in self._input_key_port:
 			id_=self._input_key_port[key]
 			if id_ in db:
 				found=found and 1
 			else:
 				found=found and 0 
-		    if found:
-			if self._finished==0:
+		      if found:
 				self.port2inputvalue()
 				self._output_values = self._func(self._input_values,self._output_values)
 				print self.check_and_start.__name__, "output_values=",self._output_values
 				self.outputvalue2port()
 				self._finished=1
-		return found 
+		print "fin",self.check_and_start.__name__, self._myname,first_status,self._finished
+		return first_status+self._finished
 
         def port2inputvalue(self,errorstop=False):
 		print "coming",self.port2inputvalue.__name__
@@ -145,7 +150,7 @@ class JobNode:
 
 	def show(self):
 		#print self._myname,self._input_key_port,self._output_key_portlist,self._input_values,self._output_values, self._finished
-		print self._myname,self._input_values,self._output_values, self._finished
+		print self._myname,self._func,self._input_values,self._output_values, self._finished
 			
 
 
@@ -182,7 +187,10 @@ class JobnodeList():
 		self._list.append(node)
 	def check_and_start(self):
 		for node in self._list:
-			node.check_and_start()
+			ret= node.check_and_start()
+			print self.check_and_start.__name__,"ret=",ret
+			if ret==1:
+				return 
 	def show(self):
 		for x in self._list:
 			x.show()
