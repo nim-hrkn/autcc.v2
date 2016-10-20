@@ -302,7 +302,8 @@ def test3():
         node3= JobNode("node3", ["a","b"],"OR",["x"])
 	node4= JobNode("node4", ["a"],"OUTPUT",[]) 
 	node5= JobNode("node5",["a"],funcC,["x"])
-	node6= JobNode("node6",["a"],funcD,["x"])
+	node6= JobNode("node6",["a"],funcD,["z"])
+	node7= JobNode("node7",["a"],funcE,["x"])
 
         graph=JobNetwork()
         graph.define([node1,"x"],[node2,"a"])
@@ -311,6 +312,7 @@ def test3():
 	graph.define([node5,"x"],[node3,"b"])
 	graph.define([node3,"x"],[node4,"a"])
 	graph.define([node3,"x"],[node6,"a"])
+	graph.define([node6,"z"],[node7,"a"])
 
 
 	nodelist=JobnodeList()
@@ -320,13 +322,14 @@ def test3():
 	nodelist._list.append(node4)
 	nodelist._list.append(node5)
 	nodelist._list.append(node6)
+	nodelist._list.append(node7)
 
 	print "-------------------------node1.sart()"
 	node1.show()
 	node1.force_start()
 	simpledb.show()
 
-	for i in range(4):
+	for i in range(5):
 		nodelist.check_and_start()
 
 		print "-------------------------node status",i
@@ -360,7 +363,6 @@ def funcB(*args):
 	for x in args[0]:
 		v=args[0][x]
 		input_.append(v)
-	i=1
 	output={}
 	for x in args[1]:
 		v=args[1][x]
@@ -378,7 +380,6 @@ def funcC(*args):
 	for x in args[0]:
 		v=args[0][x]
 		input_.append(v)
-	i=1
 	output={}
 	for x in args[1]:
 		v=args[1][x]
@@ -389,7 +390,6 @@ def funcC(*args):
 	return output
 
 
-
 def funcD(*args):
         print "running ",funcD.__name__
 
@@ -398,7 +398,7 @@ def funcD(*args):
 	for x in args[0]:
 		v=args[0][x]
 		input_.append(v[0])
-	i=1
+	print "input_",input_
 	output={}
 	for x in args[1]:
 		v=args[1][x]
@@ -406,6 +406,26 @@ def funcD(*args):
 		i.extend([funcD.__name__,x])
 		output[x]="+".join(i)
 	print funcD.__name__,"output=",output
+	return output
+
+
+
+
+def funcE(*args):
+        print "running ",funcE.__name__
+
+	print args
+	input_=[]
+	for x in args[0]:
+		v=args[0][x]
+		input_.append(v)
+	output={}
+	for x in args[1]:
+		v=args[1][x]
+		i=input_
+		i.extend([funcE.__name__,x])
+		output[x]="+".join(i)
+	print funcE.__name__,"output=",output
 	return output
 
 
