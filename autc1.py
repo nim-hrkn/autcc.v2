@@ -24,17 +24,16 @@ class JobNode:
 	""" job node definition """
 	def __init__(self,whoami,input_keys,func,output_keys):
 		self._myname=whoami
-		# keys to check DB
-		#self._input_key_port=input_keys # keys = dictionary of  variable_name: list_of_link_id
+		""" keys to check DB
+		self._input_key_port=input_keys # keys = dictionary of  variable_name: list_of_link_id """
 		self._input_key_port={}
 		for key in input_keys:
 			self._input_key_port[key]=""
-		#self._output_key_portlist=output_keys # keys = dictionary of  variable_name: list_of_link_id 
+		"""self._output_key_portlist=output_keys # keys = dictionary of  variable_name: list_of_link_id  """
 		self._output_key_portlist={}
 		for key in output_keys:
 			self._output_key_portlist[key]=[]
 
-		# values
 		self._input_values={}
 		for key in input_keys:
 			self._input_values[key]=""
@@ -42,7 +41,7 @@ class JobNode:
 		for key in output_keys:
 			self._output_values[key]=""
 
-		# function to be called
+		""" function to be called"""
 		self._func=func
 		self._finished=0
 
@@ -51,7 +50,7 @@ class JobNode:
 		    db=simpledb
 		    values={}
                     found=0
-		# assume that len of _output_key_portlist is 1
+	  	    """ assume that len of _output_key_portlist is 1"""
 		    for key in self._output_key_portlist:
 				outputid = self._output_key_portlist[key]  # outputid is a list 
 				if len(outputid)==0:
@@ -66,7 +65,7 @@ class JobNode:
 				self._input_values[key]= values[id_]
 				found= 1
 
-		# collect data
+		    """ collect data """
 		    values2=[]
 		    for v in values:
 				values2.append(values[v])
@@ -162,7 +161,8 @@ class JobNetwork:
 		pass
 	def define(self,parent,child,id_=""):
 		if len(id_)==0:
-			id_=hash_generator.get()  # is is string 
+			id_=hash_generator.get()  
+			""" is is string"""
 		parent_node=parent[0]
 		parent_key=parent[1]
 		if parent_key in parent_node._output_key_portlist:
