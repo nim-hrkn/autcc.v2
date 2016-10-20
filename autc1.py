@@ -290,9 +290,9 @@ class RunnableNode:
 
 def test3():
 
-        node1= JobNode ("node1", [],funcA,["x","y"] )
-        node2= JobNode ("node2", ["a","b"],funcB,["x"] )
-        node3= JobNode ("node3", ["a","b"],"OR",["x"])
+        node1= JobNode("node1", [],funcA,["x","y"] )
+        node2= JobNode("node2", ["a","b"],funcB,["x"] )
+        node3= JobNode("node3", ["a","b"],"OR",["x"])
 	node4= JobNode("node4", ["a"],"OUTPUT",[]) 
 	node5= JobNode("node5",["a"],funcC,["x"])
 	node6= JobNode("node6",["a"],funcD,["x"])
@@ -349,37 +349,59 @@ def funcB(*args):
 	print "running ",funcB.__name__
 
 	print args
+	input_=[]
+	for x in args[0]:
+		v=args[0][x]
+		input_.append(v)
 	i=1
 	output={}
 	for x in args[1]:
-		print "arg=(",x,")"
-		output[x]=str(i*10)
+		v=args[1][x]
+		i=input_
+		i.extend([funcB.__name__,x])
+		output[x]="+".join(i)
 	print funcB.__name__,"output=",output
 	return output
 
 def funcC(*args):
-        print "running ",funcB.__name__
+        print "running ",funcC.__name__
 
-        print args
-        i=1
-        output={}
-        for x in args[1]:
-                print "arg=(",x,")"
-                output[x]=str(i*1)
-        print funcB.__name__,"output=",output
-        return output
+	print args
+	input_=[]
+	for x in args[0]:
+		v=args[0][x]
+		input_.append(v)
+	i=1
+	output={}
+	for x in args[1]:
+		v=args[1][x]
+		i=input_
+		i.extend([funcC.__name__,x])
+		output[x]="+".join(i)
+	print funcB.__name__,"output=",output
+	return output
+
+
 
 def funcD(*args):
-        print "running ",funcB.__name__
+        print "running ",funcD.__name__
 
-        print args
-        i=1
-        output={}
-        for x in args[1]:
-                print "arg=(",x,")"
-                output[x]=str(i*1000)
-        print funcB.__name__,"output=",output
-        return output
+	print args
+	input_=[]
+	for x in args[0]:
+		v=args[0][x]
+		input_.append(v[0])
+	i=1
+	output={}
+	for x in args[1]:
+		v=args[1][x]
+		i=input_
+		i.extend([funcD.__name__,x])
+		output[x]="+".join(i)
+	print funcB.__name__,"output=",output
+	return output
+
+
 
 
 
