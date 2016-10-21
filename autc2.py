@@ -201,6 +201,7 @@ class JobnodeList():
 			x.show()
 
 	def graphviz(self):
+		print "graphvix start"
 		str0="""digraph graph_name {
 
   graph [
@@ -222,6 +223,7 @@ class JobnodeList():
 			t= node._myname
 			str1="{"
 			input_=[]
+			print "node",t,"inputport=",node._input_key_port
 			for i in node._input_key_port:
 				input_.append("<i_"+i+">"+i)
 			str1+= "|".join(input_)
@@ -245,7 +247,9 @@ class JobnodeList():
 		for node in self._list:
 			for key in node._output_key_portlist:
 				for oport in node._output_key_portlist[key]:
+					print "search inputlink of",node._myname,key,oport
 					iname,iport=self.find_inputlink(oport)
+					print "search inputlink found"
 					s+= node._myname+":o_"+key+ " -> "+ iname+":i_"+iport+";\n"
 					
 
@@ -312,23 +316,32 @@ def test3():
 	nodelist._list.append(node5)
 	nodelist._list.append(node6)
 
-	print "-------------------------node1.sart()"
-	node1.show()
-	node1.force_start()
-	print "simpledb",simpledb
 
-	for i in range(4):
-		nodelist.check_and_start()
-
-		print "-------------------------node status",i
-		nodelist.show()
-		print "simpledb",simpledb
-
+	nodemerge=JobNode("loopmerge",["i"],funcmerge,["o"])
+	nodelist._list.append(nodemerge)
+	for i in range(5):
+		nodeloop=JobNode("loop"+str(i),["i"],funcloop,["o"])
+		graph.define([node6,"x"],[nodeloop,"i"])
+		graph.define([nodeloop,"o"],[nodemerge,"i"])
+		nodelist._list.append(nodeloop)
 	
+	print "make graphviz"
 	with open("graph.dot","w") as f:
 		s=nodelist.graphviz()
 		f.write(s)
 		print "graph.dot is made."
+	print "make graphviz - done"
+
+
+
+	print "-------------------------node1.sart()"
+
+	for i in range(4):
+		print "<-------------------------node status",i
+		nodelist.check_and_start()
+		nodelist.show()
+		print "simpledb",simpledb
+		print ">-------------------------node status",i
 
 
 def funcA(*args):
@@ -402,6 +415,44 @@ def funcD(*args):
 	print funcB.__name__,"output=",output
 	return output
 
+
+
+def funcmerge(*args):
+        print "running ",funcmerge.__name__
+
+        print args
+        input_=[]
+        for x in args[0]:
+                v=args[0][x]
+                input_.append(v[0])
+        i=1
+        output={}
+        for x in args[1]:
+                v=args[1][x]
+                i=copy.deepcopy(input_)
+                i.extend([funcmerge.__name__,x])
+                output[x]="+".join(i)
+        print funcmerge.__name__,"output=",output
+        return output
+
+
+def funcloop(*args):
+        print "running ",funcloop.__name__
+
+        print args
+        input_=[]
+        for x in args[0]:
+                v=args[0][x]
+                input_.append(v[0])
+        i=1
+        output={}
+        for x in args[1]:
+                v=args[1][x]
+                i=copy.deepcopy(input_)
+                i.extend([funcloop.__name__,x])
+                output[x]="+".join(i)
+        print funcloop.__name__,"output=",output
+        return output
 
 
 
