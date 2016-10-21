@@ -126,7 +126,7 @@ class JobNode:
                 elif status=="finished":
                         initialstate=1
 		else:
-			print "status error"
+			print "status error",status
 			sys.exit(1000001)
 		return initialstate
 
@@ -280,22 +280,27 @@ def funcB(*args):
 
 def test1():
 
-        node1= JobNode("node1", [],funcB,["x","y"] )
-        node2= JobNode("node2", ["a"],funcB,["x"] )
-        node3= JobNode("node3", ["a"],funcB,["x","y"])
-        node4= JobNode("node4", ["a","b"],funcB,["x"])
+        node1= JobNode("node1", [],funcB,["x1","y1"] )
+        node2= JobNode("node2", ["a2"],funcB,["x2"] )
+        node3= JobNode("node3", ["a3"],funcB,["x3","y3"])
+        node4= JobNode("node4", ["a4","b4"],funcB,["x4"])
+        node5= JobNode("node5", ["a5","b5"],funcB,["x5"])
 
         graph=JobNetwork()
-        graph.define([node1,"x"],[node2,"a"])
-        graph.define([node1,"y"],[node3,"a"])
-        graph.define([node3,"x"],[node4,"a"])
-        graph.define([node3,"y"],[node4,"b"])
+        graph.define([node1,"x1"],[node2,"a2"])
+        graph.define([node1,"y1"],[node3,"a3"])
+        graph.define([node3,"x3"],[node4,"a4"])
+        graph.define([node3,"y3"],[node4,"b4"])
+        graph.define([node1,"y1"],[node5,"b5"])
+        graph.define([node4,"x4"],[node5,"a5"])
 
         nodelist=JobnodeList()
         nodelist.append(node1)
         nodelist.append(node2)
         nodelist.append(node3)
         nodelist.append(node4)
+        nodelist.append(node5)
+
         print "-------------------------nodelist.show()"
 
         nodelist.show()
@@ -304,7 +309,7 @@ def test1():
 
         print "-------------------------start()"
 
-        for i in range(4):
+        for i in range(5):
                 print "<-------------------------node status",i
                 nodelist.start()
 
