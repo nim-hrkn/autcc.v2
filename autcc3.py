@@ -42,26 +42,25 @@ class funcStyle:
 
 	def from_dic(self,func):
 		self._dic=func
-		print "funcStle, dic=",self._dic
 
 	def run(self,inputvalues,outputvalues):
-		for key in self._dic:
-			print "key=",key
-			print self._dic[key]
+		#for key in self._dic:
+		#	print "key=",key
+		#	print self._dic[key]
 		print "self.run()",self._dic
 		print "inputstyle", self._dic["inputstyle"]
 		inputfilename=self._dic["inputstyle"]["filename"][0]
-		print "inputfilename",inputfilename
+		#print "inputfilename",inputfilename
 		with open(inputfilename,"w") as f:
 			json.dump(inputvalues,f)
 
 		outputfilename=self._dic["outputstyle"]["templatefilename"][0]
-		print "outputfilename",outputfilename
+		#print "outputfilename",outputfilename
 		with open(outputfilename,"w") as f:
 			json.dump(outputvalues,f)
 
 		cmd=self._dic["cmd"]
-		print "cmd",cmd
+		#print "cmd",cmd
 		ret=-1
 		if not self._dryrun:
 			ret=subprocess.call(cmd,shell=True)
@@ -78,10 +77,10 @@ class funcStyle:
 		return [ret,outputvalues]
 
 	def show(self):
-		print "funcStyle"
+		print "<funcStyle.show()"
 		print self._dic
 		print self._dryrun
-		print "---------------------"
+		print "funcStyle.show()>"
 	
 
 class DBbase(object):
@@ -92,13 +91,13 @@ class DBbase(object):
 		self._co = self._db[my_collection]
 		#self._co_history = self._db[my_collection+"_history"]
 		self._mainkey=mainkey
+	def delete_many(self,cond):
+		return self._co.delete_many(cond)
 	def insert_one(self,cond):
 		return self._co.insert_one(cond)
 	def find_one(self,dic):
 		value=dic[self._mainkey]
-		print "foudn_one, cond=",{self._mainkey:value}
 		r = self._co.find_one({self._mainkey:value})
-		print "found_one=",r
 		return r
 	def update(self,cond):
 		target=cond[self._mainkey]
@@ -107,7 +106,11 @@ class DBbase(object):
 		return r
 	def find(self,value):
 		datalist=[]
-		for data in self._co.find({self._mainkey:value}):
+		if len(value)==0:
+		    for data in self._co.find():
+			datalist.append( data )
+		else:
+		    for data in self._co.find({self._mainkey:value}):
 			datalist.append( data )
 		return datalist
 	def insert_and_find_one(self,cond):
@@ -147,7 +150,7 @@ class LinkDB(DBbase):
 
 class JobNode:
 	""" job node difinition"""
-	def __init__(self,myname,input_keys,func,output_keys, node_id="",input_operation_type="1",creation_type="static",data_life="replace"):
+	def __init__(self,myname,input_keys,func,output_keys, node_id="",input_operation_type="1",creation_type="static" ):  #,data_life="replace"):
 		""" input_operation_type = 1
 					N_AND
 					N_OR"""
@@ -159,13 +162,13 @@ class JobNode:
 		if len(node_id)==0:
 			node_id=hash_generator.get(myname)
 		self._dic={ "node_id":node_id, "myname":myname, "func":func,
-		"input_operation_type":input_operation_type ,"creation_type":creation_type,
-                 "data_life":data_life }
+		"input_operation_type":input_operation_type ,"creation_type":creation_type}
+                # "data_life":data_life }
 		self._dic.update(self.template(input_keys,func,output_keys))
-		print "dic=",self._dic
+		#print "dic=",self._dic
 
 		self._dic=self._jobnode_db.insert_and_find_one(self._dic)
-		print "__init__",self._dic
+		#print "__init__",self._dic
 
 
 	def template(self,input_keys,func,output_keys):
@@ -186,6 +189,20 @@ class JobNode:
 		"exec_time":None , "exec_id":None,"finished_time":None,"status":"created"}
 		return dic
 
+	def reset_dic(self):
+                input_values={}
+		input_keys = self._dic["input_values"]
+                for x in input_keys:
+                	input_values[x]= None
+                output_values={}
+		output_keys = self._dic["output_values"]
+                for x in output_keys:
+                        output_values[x]=None
+		dic ={ "input_values":input_values, "output_values":output_values,
+                "exec_time":None , "exec_id":None,"finished_time":None,"status":"created"}
+		self._dic.update(dic)	
+		return self._dic 
+
 
 	def show(self,mode="simple"):
 		self.get_data()
@@ -196,26 +213,19 @@ class JobNode:
 
 	def get_data(self):
 		self._dic=self._jobnode_db.find_one(self._dic)
-		print "get_data",self._dic
+		#print "get_data",self._dic
 		return self._dic
 
 
 	def update_data(self):
-		print self._dic
+		#print self._dic
 		self._jobnode_db.update(self._dic)
-		print "update data", self._dic["node_id"],self._dic["myname"]
-
-	def reset_data(self):
-		self.get_data()
-		print "not implemented yet"
-		sys.exit(1000000)
-		#if self._dic["creation_type"]=="dynamic":
-		#	self._dic.update( self.template() )
+		#print "update data", self._dic["node_id"],self._dic["myname"]
 
 	def save_finished_data(self):
-		print "------------------------------"
-		print "save finishd data", self._dic["node_id"],self._dic["myname"]
-		print self._dic
+		#print "------------------------------"
+		#print "save finishd data", self._dic["node_id"],self._dic["myname"]
+		#print self._dic
 		dic=copy.deepcopy(self._dic)
 		del dic["_id"]
 		self._jobnode_finished_db.insert_one(dic)
@@ -246,15 +256,16 @@ class JobNode:
 
 		if self._dic["status"]=="created":
 			#check_all_the_port
-			print "check input port", self._dic[self._mainkey]
-			print "input_ports=", self._dic["input_ports"]
-			print "input_values=",self._dic["input_values"]
+			#print "check input port", self._dic[self._mainkey]
+			#print "input_ports=", self._dic["input_ports"]
+			#print "input_values=",self._dic["input_values"]
 			iport=InputPortOperation(self._dic["input_ports"],self._dic["input_values"],iop=iop)
 			found,values=iport.get() 
 			if found:  # now all the data are in the input ports
 				# change the status
 				print 
 				print "start ",self._dic[self._mainkey]
+				print "seld._dic=",self._dic
 				print 
 				self._dic["status"]="running"
 				self._dic["input_values"]=values
@@ -266,30 +277,36 @@ class JobNode:
 				inputvalues=self._dic["input_values"]
 				outputvalues=self._dic["output_values"]
 				# outputvalues are used to check ouput variables
-				print
-				print "calling process"
+				#print
+				#print "calling process"
 				print "inputvalues=",inputvalues
-				print "outputvalues=",inputvalues
+				#print "outputvalues=",inputvalues
 				# outputvalues=self._func(inputvalues,outputvalues)
 				func=self._dic["func"]
-				print "cmd=",func
+				#print "cmd=",func
 				funcstyle=funcStyle()
 				funcstyle.from_dic(func)
 				funcstyle.show()
 				ret,outputvalues=funcstyle.run(inputvalues,outputvalues)
-				print "outputvalues=",outputvalues
+				print "after run, outputvalues=",outputvalues
 				print 
 				self._dic["output_values"]=outputvalues
 				self._dic["status"]="finished"
 				self._dic["finished_time"]=today
-				self.update_data()
+				#self.update_data()
 
 				self.save_finished_data()
 
 				oport=OutputPortOperation(self._dic["output_values"],self._dic["output_ports"])
 				oport.put()
 
-				print " we must change the the dataflow of the inputport"
+				if self._dic["creation_type"]=="static":
+					pass
+				elif self._dic["creation_type"]=="dynamic":
+					self.reset_dic()
+				self.update_data()
+
+				iport.reset_data()
 				
 
 		return initialstate +  self.state2number()
@@ -303,6 +320,31 @@ class InputPortOperation:
 		self._valuelist=valuelist
 		self._iop=iop
 		self._dataflowdb=dataFlowDB()
+
+	def reset_data(self):
+		thisfunc="InputPortOperation:reset_data"
+		print thisfunc,"self._valuelist",self._valuelist
+		print thisfunc,"self._portlist",self._portlist
+		templatedb=LinkDB()
+		for var in self._valuelist:
+			linklist=self._portlist[var]
+			key= self._dataflowdb._mainkey
+			for link in linklist:
+				print
+				print thisfunc,"delete",link
+				template_dic=templatedb.find_one({templatedb._mainkey:link})
+				print thisfunc," template_dic",template_dic,"find",{key:link}
+				if template_dic["creation"]=="dynamic":
+					print "search",{key:link}
+					result=self._dataflowdb.find_one({key:link})
+					print "find",result
+					result=self._dataflowdb.delete_many({key:link})
+					# error 
+					if result.deleted_count>1:
+						print "reset_data, something is wrong", result.deleted_count
+						sys.exit(30000)
+				
+			
 	def get(self):
 		if self._iop=="1":
 			ret=self.get1()
@@ -313,18 +355,17 @@ class InputPortOperation:
 		else:
 			print "iop error", self._iop
 			sys.exit(1000)
-
 		return ret
 	def get1(self):
 		valuelist={}
 		found=1
 		for var in self._valuelist:
-			print "get1,var=",var
-			print "get1,portlist",self._portlist[var]
+			#print "get1,var=",var
+			#print "get1,portlist",self._portlist[var]
 			link=self._portlist[var][0] # assume that the number of the link to each port is one
 			key= self._dataflowdb._mainkey
 			value=self._dataflowdb.find_one({key:link})
-			print "value=",value
+			#print "value=",value
 			if value:
 				valuelist[var]=value["value"]
 				found = found and 1
@@ -386,19 +427,48 @@ class OutputPortOperation:
 		self._portlist=portlist
 		self._valuelist=valuelist
 		self._dataflowdb=dataFlowDB()
+		self._templatedb= LinkDB()
 	def put(self):
+		thisfunc="OutputPortOperation:put"
+		print thisfunc,"put,value=",self._valuelist
+		print thisfunc,"put,port=", self._portlist
                 for var in self._valuelist:
                         portlist=self._portlist[var]
+			#print "postlist",portlist
 			for link in portlist:
-				dic={"data_id":link, "value": self._valuelist[var]}
-				print
-				print "outputport, insert",dic
-				print
-				self._dataflowdb.insert_one(dic)
+				key=self._templatedb._mainkey
+				template=self._templatedb.find_one({key:link})
+				print thisfunc,"template",template
+				if template["treatment"]=="replace":
+					dic={"data_id":link, "value": self._valuelist[var]}
+					print
+					print thisfunc,"outputport, clear_insert",dic
+					print
+					print thisfunc,"key,link=",{self._dataflowdb._mainkey:link}
+					print 
+					found = self._dataflowdb.find_one({self._dataflowdb._mainkey:link})
+					print thisfunc,"found,value=",found
+					if found:
+						self._dataflowdb.update(dic)
+					else:
+						self._dataflowdb.insert_one(dic)
+				elif template["treatment"]=="append":
+					found = self._dataflowdb.find_one({self._dataflowdb._mainkey:link})
+					if found:
+						dic["value"].append( self._valuelist[var] )
+						self._dataflowdb.update(dic)
+					else:
+						self._dataflowdb.insert_one(dic)
+				else:
+					print "template keyword error"
+					sys.exit(5000)
+
 
 class jobNetworkTemplate:
 	""" template into DB"""
 	def __init__(self,parent,child,id_,creation="static",treatment="replace"):
+		""" creation = statis|dynamic
+			treatment = replace|append  """
 		parent_node =parent[0]
 		parent_key =parent[1]
 		child_node =child[0]
@@ -421,9 +491,9 @@ class JobNetwork:
                 self._network=()
 		self._linkdb=LinkDB()
 
-        def define(self,parent,child,id_="",dynamic=False):
+        def define(self,parent,child,id_="",creation="static",treatment="replace"):
 
-		template =jobNetworkTemplate(parent,child,id_,dynamic)
+		template =jobNetworkTemplate(parent,child,id_,creation,treatment)
 		# register in LinkDB
 		self._linkdb.insert_one(template._dic)
 		link_id=template._dic["link_id"]
@@ -435,11 +505,11 @@ class JobNetwork:
                 parent_name=parent[0]
 		parent_dic= nodedb.find_one({"myname":parent_name})
                 parent_key=parent[1]
-		print "node--->"
-		print parent_dic
-		print "<---node"
-		print parent_key
-		print "output_ports=",parent_dic["output_ports"]
+		#print "node--->"
+		#print parent_dic
+		#print "<---node"
+		#print parent_key
+		#print "output_ports=",parent_dic["output_ports"]
                 if parent_key in parent_dic["output_ports"]:
                         parent_dic["output_ports"][parent_key].append( link_id )
                 else:
@@ -471,9 +541,10 @@ class JobnodeList():
                         if ret==1:
                                 return 
         def show(self):
+		print "<jobnodelist.show"
                 for i,x in enumerate(self._list):
-                        print i
 			x.show()
+		print "jobnodelist.show>"
 
 
 def test1():
@@ -493,71 +564,67 @@ def test1():
 	funcmerge= "python funcmerge.py"
 	funcOR= "python funcOR.py"
 
-        node1= JobNode("node1", [],funcStyle(funcA)._dic,["x1","y1"] )
-        node3= JobNode("node3", ["a3"],funcStyle(funcB)._dic,["x3","y3"])
-        node4= JobNode("node4", ["a4","b4"],funcStyle(funcC)._dic,["x4"])
-        node5= JobNode("node5", ["a5","b5"],funcStyle(funcC)._dic,["x5"])
-
-	print "-----------shwo each node----------------"
-	print node1._dic["myname"]; node1.show()
-	print node3._dic["myname"]; node3.show()
-	print node4._dic["myname"]; node4.show()
-	print node5._dic["myname"]; node5.show()
-	print "---------------------------"
-
         graph=JobNetwork()
-        graph.define(["node1","y1"],["node3","a3"])
-        graph.define(["node3","x3"],["node4","a4"])
-        graph.define(["node3","y3"],["node4","b4"])
-        graph.define(["node1","y1"],["node5","b5"])
-        graph.define(["node4","x4"],["node5","a5"])
-
-
         nodelist=JobnodeList()
+
+        node1= JobNode("node1", [],funcStyle(funcA)._dic,["x1","y1"] )
         nodelist.append(node1)
-        nodelist.append(node3)
-        nodelist.append(node4)
-        nodelist.append(node5)
 
-	nodelist.show()
+	run=3
 
 
-	if False:
-            node2= JobNode("node2", ["a2"],funcB,["x2"] )
-            graph.define([node1,"x1"],[node2,"a2"])
+	if run==1:
+        	node3= JobNode("node3", ["a3"],funcStyle(funcB)._dic,["x3","y3"])
+        	node4= JobNode("node4", ["a4","b4"],funcStyle(funcC)._dic,["x4"])
+        	node5= JobNode("node5", ["a5","b5"],funcStyle(funcC)._dic,["x5"])
+
+        	graph.define(["node1","y1"],["node3","a3"])
+        	graph.define(["node3","x3"],["node4","a4"])
+        	graph.define(["node3","y3"],["node4","b4"])
+        	graph.define(["node1","y1"],["node5","b5"])
+        	graph.define(["node4","x4"],["node5","a5"])
+
+        	nodelist.append(node3)
+         	nodelist.append(node4)
+        	nodelist.append(node5)
+		nodelist.show()
+
+	if run==2:
+            node2= JobNode("node2", ["a2"],funcStyle(funcB)._dic,["x2"] )
+            graph.define(["node1","x1"],["node2","a2"])
             nodelist.append(node2)
-	    loopmerge=JobNode("loopmerge",["m1"],funcmerge,[],input_operation_type="N_AND")
+	    loopmerge=JobNode("loopmerge",["m1"],funcStyle(funcmerge)._dic,[],input_operation_type="N_AND")
 	    for i in range(4):
 		name="loop"+str(i)
-		nodeloop=JobNode(name , ["i1"],funcB,["o1"])
+		nodeloop=JobNode(name , ["i1"],funcStyle(funcB)._dic,["o1"])
 		graph.define(["node2","x2"],[name,"i1"])
 		graph.define([name,"o1"],["loopmerge","m1"])
 		nodelist.append(nodeloop)
 	    nodelist.append(loopmerge)
 
-	if False:
-                node2= JobNode("node2", ["a2"],funcB,["x2"] )
+	if run==3:
+                node2= JobNode("node2", ["a2"],funcStyle(funcB)._dic,["x2"] )
                 graph.define(["node1","x1"],["node2","a2"])
                 nodelist.append(node2)
-		node3=JobNode("node3",["a3"],funcOR,["x3"],input_operation_type="N_OR",creation_type="dynamic")
-		node4=JobNode("node4",["a4"],funcB,["x4"],creation_type="dynamic")
-		graph.define(["node2","x2"],["node3","a3"])
+		node3=JobNode("node3",["a3"],funcStyle(funcOR)._dic,["x3"],input_operation_type="N_OR",creation_type="dynamic")
+		node4=JobNode("node4",["a4"],funcStyle(funcB)._dic,["x4"],creation_type="dynamic")
+		graph.define(["node2","x2"],["node3","a3"],creation="dynamic")
 		graph.define(["node3","x3"],["node4","a4"])
-		graph.define(["node4","x4"],["node3","a3"])
+		graph.define(["node4","x4"],["node3","a3"],creation="dynamic")
 		nodelist.append(node3)
 		nodelist.append(node4)
-
 
 	print
 	print "start"
 	print 
 
 
-        for i in range(4):
+        for i in range(7):
                 print "<-------------------------node status",i
                 nodelist.start()
-                print "<-----------simpledb.show"
 
+	print "------------------end-------------------------"
+	nodelist.show()
 
 test1()
 
