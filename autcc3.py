@@ -8,6 +8,7 @@ import hashlib
 import copy
 import datetime
 import subprocess
+import json
 
 
 class hashGenerator:
@@ -29,10 +30,63 @@ class hashGenerator:
 
 hash_generator=hashGenerator("hiori kino")
 
+class funcStyle:
+	def __init__(self,func="",inputstyle="",outputstyle=""):
+		if len(inputstyle)==0:
+			inputstyle={"type":"json", "filename":["_input.json"]}
+	
+		if len(outputstyle)==0:
+			outputstyle={"type":"json","templatefilename":["_outputtemplate.json"],"filename":["_output.json"]}
+		self._dic={"cmd":func, "inputstyle":inputstyle, "outputstyle":outputstyle} 
+		self._dryrun=False
+
+	def from_dic(self,func):
+		self._dic=func
+		print "funcStle, dic=",self._dic
+
+	def run(self,inputvalues,outputvalues):
+		for key in self._dic:
+			print "key=",key
+			print self._dic[key]
+		print "self.run()",self._dic
+		print "inputstyle", self._dic["inputstyle"]
+		inputfilename=self._dic["inputstyle"]["filename"][0]
+		print "inputfilename",inputfilename
+		with open(inputfilename,"w") as f:
+			json.dump(inputvalues,f)
+
+		outputfilename=self._dic["outputstyle"]["templatefilename"][0]
+		print "outputfilename",outputfilename
+		with open(outputfilename,"w") as f:
+			json.dump(outputvalues,f)
+
+		cmd=self._dic["cmd"]
+		print "cmd",cmd
+		ret=-1
+		if not self._dryrun:
+			ret=subprocess.call(cmd,shell=True)
+			print "subprocess, ret=",ret, "cmd=",cmd
+		if ret!=0:
+			sys.exit(30000)
+
+		outputfilename=self._dic["outputstyle"]["filename"][0]
+		outputvalues=[]
+                with open(outputfilename,"r") as f:
+			outputvalues=json.load(f)
+			found=1
+
+		return [ret,outputvalues]
+
+	def show(self):
+		print "funcStyle"
+		print self._dic
+		print self._dryrun
+		print "---------------------"
+	
 
 class DBbase(object):
 	""" wrapper for mongoDB"""
-	def __init__(self,my_database,my_collection,mainkey=""):
+	def __init__(self,my_database,my_collection,mainkey):
 		self._client = pymongo.MongoClient('localhost', 27017)
 		self._db = self._client[my_database]
 		self._co = self._db[my_collection]
@@ -42,13 +96,15 @@ class DBbase(object):
 		return self._co.insert_one(cond)
 	def find_one(self,dic):
 		value=dic[self._mainkey]
+		print "foudn_one, cond=",{self._mainkey:value}
 		r = self._co.find_one({self._mainkey:value})
-		print "r=",r
+		print "found_one=",r
 		return r
 	def update(self,cond):
 		target=cond[self._mainkey]
 		ret= self._co.update({self._mainkey:target},cond)
 		r=self._co.find({self._mainkey:target})
+		return r
 	def find(self,value):
 		datalist=[]
 		for data in self._co.find({self._mainkey:value}):
@@ -70,7 +126,7 @@ class DBbase(object):
 class dataFlowDB(DBbase):
         """ wrapper for mongoDB"""
         def __init__(self,my_database="nodedb",my_collection="dataflow",main_key="data_id"):
-		super(dataFlowDB,self).__init__(my_database,my_collection)
+		super(dataFlowDB,self).__init__(my_database,my_collection,main_key)
 
 
 class JobnodeDB(DBbase):
@@ -143,15 +199,11 @@ class JobNode:
 		print "get_data",self._dic
 		return self._dic
 
-	#def save_data(self,dic=None):
-	#	if isinstane(dic,None.Type):
-	#		dic=self._dic	
-	#	self._jobnode_db.insert_one(dic)
 
 	def update_data(self):
-		print "update data", self._dic["node_id"],self._dic["myname"]
 		print self._dic
 		self._jobnode_db.update(self._dic)
+		print "update data", self._dic["node_id"],self._dic["myname"]
 
 	def reset_data(self):
 		self.get_data()
@@ -190,13 +242,13 @@ class JobNode:
 
 		iop=self._dic["input_operation_type"]
 
-		print "iop=",iop,self._dic[self._mainkey]
+		print "iop=",iop,self._dic[self._mainkey], self._dic["status"]
 
-		if True:
+		if self._dic["status"]=="created":
 			#check_all_the_port
-			print "check input port"
+			print "check input port", self._dic[self._mainkey]
 			print "input_ports=", self._dic["input_ports"]
-			print "output_ports=",self._dic["input_values"]
+			print "input_values=",self._dic["input_values"]
 			iport=InputPortOperation(self._dic["input_ports"],self._dic["input_values"],iop=iop)
 			found,values=iport.get() 
 			if found:  # now all the data are in the input ports
@@ -219,10 +271,13 @@ class JobNode:
 				print "inputvalues=",inputvalues
 				print "outputvalues=",inputvalues
 				# outputvalues=self._func(inputvalues,outputvalues)
-				cmd=self._dic["func"]
-				print "cmd=",cmd
-				retcode=subprocess.call(cmd,shell=True)
-				print "outputvalues=",inputvalues
+				func=self._dic["func"]
+				print "cmd=",func
+				funcstyle=funcStyle()
+				funcstyle.from_dic(func)
+				funcstyle.show()
+				ret,outputvalues=funcstyle.run(inputvalues,outputvalues)
+				print "outputvalues=",outputvalues
 				print 
 				self._dic["output_values"]=outputvalues
 				self._dic["status"]="finished"
@@ -234,7 +289,7 @@ class JobNode:
 				oport=OutputPortOperation(self._dic["output_values"],self._dic["output_ports"])
 				oport.put()
 
-				# change state of the node
+				print " we must change the the dataflow of the inputport"
 				
 
 		return initialstate +  self.state2number()
@@ -242,7 +297,7 @@ class JobNode:
 
 class InputPortOperation:
 	""" format = 
-	{"_id":ObjectId(...), "link_id": link_id, "value": somevalue } """
+	{"_id":ObjectId(...), "data_id": link_id, "value": somevalue } """
 	def __init__(self,portlist,valuelist,iop="1"):
 		self._portlist=portlist
 		self._valuelist=valuelist
@@ -267,7 +322,9 @@ class InputPortOperation:
 			print "get1,var=",var
 			print "get1,portlist",self._portlist[var]
 			link=self._portlist[var][0] # assume that the number of the link to each port is one
-			value=self._dataflowdb.find_one({"dataid":link})
+			key= self._dataflowdb._mainkey
+			value=self._dataflowdb.find_one({key:link})
+			print "value=",value
 			if value:
 				valuelist[var]=value["value"]
 				found = found and 1
@@ -335,7 +392,7 @@ class OutputPortOperation:
 			for link in portlist:
 				dic={"data_id":link, "value": self._valuelist[var]}
 				print
-				print "insert",dic
+				print "outputport, insert",dic
 				print
 				self._dataflowdb.insert_one(dic)
 
@@ -411,11 +468,6 @@ class JobnodeList():
         def start(self):
                 for node in self._list:
                         ret= node.start()
-                        print self.start.__name__,"ret=",ret
-
-			# if job=finished
-			# reset node and reset link 
-
                         if ret==1:
                                 return 
         def show(self):
@@ -435,14 +487,16 @@ def test1():
 	db3=dataFlowDB()
 	db3.drop()
 
-	funcB="python funcB.py"
-	funcmerge="python funcmerge.py"
-	funcOR="python funcOR.py"
+	funcA= "python funcA.py"
+	funcB= "python funcB.py"
+	funcC= "python funcC.py"
+	funcmerge= "python funcmerge.py"
+	funcOR= "python funcOR.py"
 
-        node1= JobNode("node1", [],funcB,["x1","y1"] )
-        node3= JobNode("node3", ["a3"],funcB,["x3","y3"])
-        node4= JobNode("node4", ["a4","b4"],funcB,["x4"])
-        node5= JobNode("node5", ["a5","b5"],funcB,["x5"])
+        node1= JobNode("node1", [],funcStyle(funcA)._dic,["x1","y1"] )
+        node3= JobNode("node3", ["a3"],funcStyle(funcB)._dic,["x3","y3"])
+        node4= JobNode("node4", ["a4","b4"],funcStyle(funcC)._dic,["x4"])
+        node5= JobNode("node5", ["a5","b5"],funcStyle(funcC)._dic,["x5"])
 
 	print "-----------shwo each node----------------"
 	print node1._dic["myname"]; node1.show()
@@ -494,16 +548,14 @@ def test1():
 		nodelist.append(node4)
 
 
-        print "-------------------------nodelist.show()"
-
-        nodelist.show()
+	print
+	print "start"
+	print 
 
 
         for i in range(4):
                 print "<-------------------------node status",i
                 nodelist.start()
-
-                nodelist.show()
                 print "<-----------simpledb.show"
 
 
