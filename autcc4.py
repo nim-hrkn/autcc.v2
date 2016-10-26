@@ -178,7 +178,7 @@ class JobNodeTemplate:
 		self._dic.update(self.keys_initialvalues(input_keys,output_keys))
 		self._mainkey="myname"
 
-		possible_var = [ {"status":["created","running","finished"]} ]
+		#possible_var = [ {"status":["created","running","finished"]} ]
 
 
 	def keys_initialvalues(self,input_keys,output_keys):
@@ -216,7 +216,7 @@ class JobNode:
 
 		self._accept_dic = {"creation_type": ["dynamic","static"], 
 				"input_operation_type":["1","N_AND","N_OR"],
-				"status":["created","running","finished"]}
+				"status":["created","running","finished","waiting"]}
 
 		if len(node_id)==0:
 			node_id=hash_generator.get(myname)
@@ -263,7 +263,7 @@ class JobNode:
                 for x in output_keys:
                         output_values[x]=None
 		dic ={ "input_values":input_values, "output_values":output_values,
-                "exec_time":None , "exec_id":None,"finished_time":None,"status":"created"}
+                "exec_time":None , "exec_id":None,"finished_time":None,"status":"waiting"}
 		for  key in dic:
 			#if key in self._dic:
 			#	self._dic[key]=dic[key]
@@ -302,18 +302,18 @@ class JobNode:
 		self._jobnode_finished_db.insert_one(dic)
 
 
-	def state2number(self):
-		status=self._dic["status"]
-                if status=="created":
-                        initialstate=0
-                elif status=="running":
-                        initialstate=-100
-                elif status=="finished":
-                        initialstate=1
-		else:
-			print( "state2number(),status error",status )
-			sys.exit(1000001)
-		return initialstate
+	#def state2number(self):
+	#	status=self._dic["status"]
+        #        if status=="created":
+        #                initialstate=0
+        #        elif status=="running":
+        #                initialstate=-100
+        #        elif status=="finished":
+        #                initialstate=1
+	#	else:
+	#		print( "state2number(),status error",status )
+	#		sys.exit(1000001)
+	#	return initialstate
 
 
 	def check_and_set_dic(self,key,value):
@@ -341,7 +341,7 @@ class JobNode:
 
 		#print "iop=",iop,self._dic[self._mainkey], self._dic["status"]
 
-		if initialstate=="created":
+		if initialstate in ["created","waiting"] :
 			#check_all_the_port
 
 			iport=InputPortOperation(self._dic["input_ports"],self._dic["input_values"],iop=iop)
@@ -657,7 +657,7 @@ class JobnodeList():
         def start(self):
                 for node in self._list:
                         ret= node.start()
-                        if ret=="created,finished":
+                        if ret in ["created,finished","waiting,finished"]:
                                 return  True
 		return False
         def show(self):
@@ -695,6 +695,8 @@ class JobnodeList():
 			status=dic["status"]
 			if status=="created":
 				fgcolor="gray"
+			elif status=="waiting":
+				fgcolor="blue"
 			elif status=="running":
 				fgcolor="red"
 			elif status=="finished":
@@ -744,7 +746,7 @@ class DBList:
 		self._db2.drop()
 		self._db3.drop()
 
-def test1():
+def test1(run=1):
 
 	dblist=DBList()
 	dblist.drop_all()
@@ -768,7 +770,6 @@ def test1():
         node1= JobNode("node1", [],funcStyle(funcA)._dic,["x1","y1"] )
         nodelist.append(node1)
 
-	run=3
 
 
 	if run==1:
@@ -842,5 +843,6 @@ def test1():
 	print( "------------------end-------------------------")
 	nodelist.show()
 
-test1()
+
+test1(run=3)
 
