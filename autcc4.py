@@ -28,6 +28,7 @@ import subprocess
 import json
 import time
 
+from graphviz import Digraph
 
 
 class hashGenerator:
@@ -605,6 +606,10 @@ class JobNetwork:
                 self._network=()
 		self._linkdb=LinkDB()
 
+	def get_all(self):
+		linklist=self._linkdb.find()
+		return linklist
+
         def define(self,parent,child,id_="",creation="static",treatment="replace"):
 
 		template =jobNetworkTemplate(parent,child,id_,creation,treatment)
@@ -659,6 +664,43 @@ class JobnodeList():
 			x.show()
 		print( "jobnodelist.show>" )
 
+	def make_keylist(self,dic):
+		if len(dic)==0:
+			return ""
+		xlist=[]
+		for x in dic:
+			xlist.append("<"+x+">"+ x)
+		return "{"+"|".join(xlist)+"}"
+
+	def graphviz(self):
+		g = Digraph('G', filename='cluster.gv')
+		g.attr("node",shape="record")
+
+		for node in self._list:
+			dic=node.get_data()
+			print ("dic",dic)
+			iv=self.make_keylist(dic[ "input_values"])
+			ov=self.make_keylist(dic["output_values"])
+			myname=dic["myname"]
+			print( myname,iv,ov )
+			g.node( myname,label="{"+"|".join([iv,myname,ov])+"}" )
+
+		self.graphviz_link(g)
+		with open("graph.dot","w") as f:
+			f.write(g.source)	
+		g.view()
+
+	def graphviz_link(self,g):
+		jobnetwork = LinkDB()
+		for link in jobnetwork.find(""):
+			parent=link["parent_node"]
+			child=link["child_node"]
+			p_key=link["parent_key"]
+			c_key=link["child_key"]
+			g.edge( ":".join([parent,p_key]),":".join([child,c_key]) )
+
+		
+
 class DBList:
 	"""a list of DB"""
 	def __init__(self):
@@ -696,7 +738,7 @@ def test1():
         node1= JobNode("node1", [],funcStyle(funcA)._dic,["x1","y1"] )
         nodelist.append(node1)
 
-	run=2
+	run=3
 
 
 	if run==1:
@@ -744,6 +786,10 @@ def test1():
 		nodelist.append(node3)
 		nodelist.append(node4)
 		nodelist.append(node5)
+
+
+
+	nodelist.graphviz()
 
 	print( )
 	print( "start" )
