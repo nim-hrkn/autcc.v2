@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+
+import json
+import copy
+
+
+def get_value(file):
+        with open(file,"r") as f:
+		try:
+			values=json.load(f)
+		except:
+			values={}
+	return values
+
+def put_outputvalue(values):
+        file="_output.json"
+	with open(file,"w") as f:
+		json.dump(values,f)
+
+inputfile="_input.json"
+outputtemplatefile="_outputtemplate.json"
+outputfile="_output.json"
+
+inputvalue=  get_value(inputfile)
+outputvalue= get_value(outputtemplatefile)
+print "outputtemplate=",outputvalue
+
+i=0
+iv=[]
+for ip in  inputvalue:
+	iv.append(int(inputvalue[ip]))
+
+i=sum(iv)
+
+
+if i<10:
+    for key in ["x4"]:
+	k=key[0:1]
+	iadd=0
+	if k=="x":
+		iadd=1
+	elif k=="y":
+		iadd=10
+	elif k=="z":
+		iadd=100
+	outputvalue[key]=i+iadd
+else:
+    for key in ["y4"]:
+	outputvalue[key]=i 
+
+put_outputvalue(outputvalue)
+
+
