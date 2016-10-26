@@ -652,6 +652,7 @@ class JobnodeList():
         """ a list of jobode"""
         def __init__(self):
                 self._list=[]
+		self._graphviz_id=0
         def append(self,node):
                 self._list.append(node)
         def start(self):
@@ -676,7 +677,10 @@ class JobnodeList():
 
 	def graphviz(self):
 		self._graphviz_dryrun= False
-		g = Digraph('G', filename='cluster.gv')
+		#name = "cluster%03i.dot" % (self._graphviz_id) 
+		name= "cluster.dot"
+		self._graphviz_id += 1
+		g = Digraph('G', filename=name)
 		g.attr("node",shape="record")
 
 		for node in self._list:
@@ -704,8 +708,8 @@ class JobnodeList():
 			g.node( myname,label="{"+"|".join([iv,myname+input_operation_type,ov])+"}", fontcolor=fgcolor,color=fgcolor )
 
 		self.graphviz_link(g)
-		with open("graph.dot","w") as f:
-			f.write(g.source)	
+		#with open("graph.dot","w") as f:
+		#	f.write(g.source)	
 		if not self._graphviz_dryrun:
 			g.view()
 
@@ -793,7 +797,7 @@ def test1(run=1):
             graph.define(["node1","x1"],["node2","a2"])
             nodelist.append(node2)
 	    loopmerge=JobNode("loopmerge",["m1"],funcStyle(funcmerge)._dic,["x1"],input_operation_type="N_AND")
-	    for i in range(4):
+	    for i in range(6):
 		name="loop"+str(i)
 		nodeloop=JobNode(name , ["i1"],funcStyle(funcB)._dic,["o1"])
 		graph.define(["node2","x2"],[name,"i1"])
@@ -844,5 +848,5 @@ def test1(run=1):
 	nodelist.show()
 
 
-test1(run=3)
+test1(run=2)
 
