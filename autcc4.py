@@ -334,16 +334,15 @@ class JobNode:
 	def start(self):
 		"""check the inputport and start if the condition is fulfilled"""
 		self.get_data()
-		initialstate=self.state2number()
+		initialstate=self._dic["status"]
+		finalstate=initialstate
 
 		iop=self._dic["input_operation_type"]
 
 		#print "iop=",iop,self._dic[self._mainkey], self._dic["status"]
 
-		if self._dic["status"]=="created":
+		if initialstate=="created":
 			#check_all_the_port
-
-
 
 			iport=InputPortOperation(self._dic["input_ports"],self._dic["input_values"],iop=iop)
 			found,values=iport.get() 
@@ -389,6 +388,7 @@ class JobNode:
 				#self.update_data()
 
 				self.save_finished_data()
+				finalstate = self._dic["status"]
 
 				oport=OutputPortOperation(self._dic["output_values"],self._dic["output_ports"])
 				oport.put()
@@ -402,7 +402,7 @@ class JobNode:
 				iport.reset_data()
 				
 
-		return initialstate +  self.state2number()
+		return ",".join([initialstate,finalstate])
 
 
 class InputPortOperation:
@@ -657,7 +657,7 @@ class JobnodeList():
         def start(self):
                 for node in self._list:
                         ret= node.start()
-                        if ret==1:
+                        if ret=="created,finished":
                                 return  True
 		return False
         def show(self):
@@ -675,6 +675,7 @@ class JobnodeList():
 		return "{"+"|".join(xlist)+"}"
 
 	def graphviz(self):
+		self._graphviz_dryrun= False
 		g = Digraph('G', filename='cluster.gv')
 		g.attr("node",shape="record")
 
@@ -683,7 +684,13 @@ class JobnodeList():
 			print ("dic",dic)
 			iv=self.make_keylist(dic[ "input_values"])
 			ov=self.make_keylist(dic["output_values"])
+			input_operation_type = dic["input_operation_type"]
+			print ( "input_operation_type",input_operation_type )
 			myname=dic["myname"]
+			if input_operation_type in [ "N_AND","N_OR" ]:
+				input_operation_type=","+input_operation_type
+			else:
+				input_operation_type=""
 			print( myname,iv,ov )
 			status=dic["status"]
 			if status=="created":
@@ -692,12 +699,13 @@ class JobnodeList():
 				fgcolor="red"
 			elif status=="finished":
 				fgcolor="green"
-			g.node( myname,label="{"+"|".join([iv,myname,ov])+"}", fontcolor=fgcolor,color=fgcolor )
+			g.node( myname,label="{"+"|".join([iv,myname+input_operation_type,ov])+"}", fontcolor=fgcolor,color=fgcolor )
 
 		self.graphviz_link(g)
 		with open("graph.dot","w") as f:
 			f.write(g.source)	
-		g.view()
+		if not self._graphviz_dryrun:
+			g.view()
 
 	def graphviz_link(self,g):
 		jobnetwork = LinkDB()
