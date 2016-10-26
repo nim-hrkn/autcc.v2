@@ -18,13 +18,14 @@ def put_outputvalue(values):
 	with open(file,"w") as f:
 		json.dump(values,f)
 
+thisfunc="funcmerge"
 inputfile="_input.json"
 outputtemplatefile="_outputtemplate.json"
 outputfile="_output.json"
 
 inputvalue=  get_value(inputfile)
 outputvalue= get_value(outputtemplatefile)
-print "outputtemplate=",outputvalue
+#print thisfunc, "outputtemplate=",outputvalue
 
 v=[]
 for ip in  inputvalue:
@@ -32,7 +33,7 @@ for ip in  inputvalue:
 		if l is not None:
 			v.append(l)
 i=sum(v)
-print "outputvalue",outputvalue
+print thisfunc, "outputvalue",outputvalue
 for key in outputvalue:
 	outputvalue[key]=i
 

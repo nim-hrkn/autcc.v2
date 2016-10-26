@@ -17,13 +17,14 @@ def put_outputvalue(values):
 	with open(file,"w") as f:
 		json.dump(values,f)
 
+thisfunc="funcOR"
 inputfile="_input.json"
 outputtemplatefile="_outputtemplate.json"
 outputfile="_output.json"
 
 inputvalue=  get_value(inputfile)
 outputvalue= get_value(outputtemplatefile)
-print "outputtemplate=",outputvalue
+print thisfunc, "outputtemplate=",outputvalue
 
 i=0
 iv=[]

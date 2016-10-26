@@ -26,6 +26,7 @@ import copy
 import datetime
 import subprocess
 import json
+import time
 
 
 
@@ -756,6 +757,9 @@ def test1():
 			print ("nothing left" )
 			print ()
 			break
+		t=2.0
+		print( "wait",t,"sec" )
+		time.sleep(t)
 
 	print( "------------------end-------------------------")
 	nodelist.show()
