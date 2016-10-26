@@ -106,6 +106,8 @@ class funcStyle:
 class DBbase(object):
 	""" wrapper for mongoDB"""
 	def __init__(self,my_database,my_collection,mainkey):
+		self._my_database=my_database
+		self._my_collection=my_collection
 		self._client = pymongo.MongoClient('localhost', 27017)
 		self._db = self._client[my_database]
 		self._co = self._db[my_collection]
@@ -683,7 +685,14 @@ class JobnodeList():
 			ov=self.make_keylist(dic["output_values"])
 			myname=dic["myname"]
 			print( myname,iv,ov )
-			g.node( myname,label="{"+"|".join([iv,myname,ov])+"}" )
+			status=dic["status"]
+			if status=="created":
+				fgcolor="gray"
+			elif status=="running":
+				fgcolor="red"
+			elif status=="finished":
+				fgcolor="green"
+			g.node( myname,label="{"+"|".join([iv,myname,ov])+"}", fontcolor=fgcolor,color=fgcolor )
 
 		self.graphviz_link(g)
 		with open("graph.dot","w") as f:
@@ -692,12 +701,25 @@ class JobnodeList():
 
 	def graphviz_link(self,g):
 		jobnetwork = LinkDB()
+		dataflow=dataFlowDB()
 		for link in jobnetwork.find(""):
 			parent=link["parent_node"]
 			child=link["child_node"]
 			p_key=link["parent_key"]
 			c_key=link["child_key"]
-			g.edge( ":".join([parent,p_key]),":".join([child,c_key]) )
+			link_id=link["link_id"]
+			print ("data_id=",{dataflow._mainkey:link_id})
+			data_diclist=dataflow.find(link_id)
+			print( "data_diclist",data_diclist )
+			fgcolor="gray"
+			if len(data_diclist)>1:
+				print( "internal error, data_diclist !=1, for link_id=",link_id )
+				print( data_diclist )
+				sys.exit(60000)
+			elif len(data_diclist)==1:
+				fgcolor="red"
+			
+			g.edge( ":".join([parent,p_key]),":".join([child,c_key]), color=fgcolor )
 
 		
 
@@ -803,6 +825,8 @@ def test1():
 			print ("nothing left" )
 			print ()
 			break
+
+		nodelist.graphviz()
 		t=2.0
 		print( "wait",t,"sec" )
 		time.sleep(t)
