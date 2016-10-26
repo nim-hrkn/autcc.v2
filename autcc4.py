@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import pymongo
 from bson.objectid import ObjectId
 import sys
@@ -9,6 +11,7 @@ import copy
 import datetime
 import subprocess
 import json
+
 
 
 class hashGenerator:
@@ -47,24 +50,24 @@ class funcStyle:
 		#for key in self._dic:
 		#	print "key=",key
 		#	print self._dic[key]
-		print "self.run()",self._dic
-		print "inputstyle", self._dic["inputstyle"]
+		#print "self.run()",self._dic
+		#print "inputstyle", self._dic["inputstyle"]
 		inputfilename=self._dic["inputstyle"]["filename"][0]
-		#print "inputfilename",inputfilename
+
 		with open(inputfilename,"w") as f:
 			json.dump(inputvalues,f)
 
 		outputfilename=self._dic["outputstyle"]["templatefilename"][0]
-		#print "outputfilename",outputfilename
+
 		with open(outputfilename,"w") as f:
 			json.dump(outputvalues,f)
 
 		cmd=self._dic["cmd"]
-		#print "cmd",cmd
+
 		ret=-1
 		if not self._dryrun:
 			ret=subprocess.call(cmd,shell=True)
-			print "subprocess, ret=",ret, "cmd=",cmd
+			print( "subprocess, ret=",ret, "cmd=",cmd )
 		if ret!=0:
 			sys.exit(30000)
 
@@ -77,10 +80,10 @@ class funcStyle:
 		return [ret,outputvalues]
 
 	def show(self):
-		print "<funcStyle.show()"
-		print self._dic
-		print self._dryrun
-		print "funcStyle.show()>"
+		print( "<funcStyle.show()" )
+		print( self._dic )
+		print( self._dryrun )
+		print( "funcStyle.show()>" )
 	
 
 class DBbase(object):
@@ -118,9 +121,9 @@ class DBbase(object):
                 ret=self.insert_one(cond)
                 return self.find_one({self._mainkey:value})
 	def show(self,cond={}):
-                print self._client, self._db, self._co, self._mainkey
+                print( self._client, self._db, self._co, self._mainkey )
 		for i,data in enumerate(self.find(cond)):
-			print i,data
+			print( i,data )
 	def save(self,cond):
 		self._co.save(cond)
 	def drop(self):
@@ -192,6 +195,10 @@ class JobNode:
 		self._dic=template._dic
 		self._mainkey=template._mainkey
 
+		self._accept_dic = {"creation_type": ["dynamic","static"], 
+				"input_operation_type":["1","N_AND","N_OR"],
+				"status":["created","running","finished"]}
+
 		if len(node_id)==0:
 			node_id=hash_generator.get(myname)
 		dic={ "node_id":node_id, "myname":myname, "func":func,
@@ -203,10 +210,10 @@ class JobNode:
 
                 # "data_life":data_life }
 		#self._dic.update(self.template(input_keys,func,output_keys))
-		#print "dic=",self._dic
+
 
 		self._dic=self._jobnode_db.insert_and_find_one(self._dic)
-		#print "__init__",self._dic
+
 
 
 	#def template(self,input_keys,func,output_keys):
@@ -249,30 +256,30 @@ class JobNode:
 	def show(self,mode="simple"):
 		self.get_data()
 		if mode=="simple":
-			print self._dic["node_id"],self._dic["myname"],self._dic["input_values"],self._dic["output_values"]
+			print( self._dic["node_id"],self._dic["myname"],self._dic["input_values"],self._dic["output_values"] )
 		else:
-			print self._dic
+			print( self._dic )
 
 	def get_data(self):
 		self._dic=self._jobnode_db.find_one(self._dic)
-		#print "get_data",self._dic
+
 		return self._dic
 
 
 	def update_data(self):
-		#print self._dic
+
 		self._jobnode_db.update(self._dic)
-		#print "update data", self._dic["node_id"],self._dic["myname"]
+
 
 	def save_finished_data(self):
-		#print "------------------------------"
-		#print "save finishd data", self._dic["node_id"],self._dic["myname"]
-		#print self._dic
+
+
+
 		dic=copy.deepcopy(self._dic)
 		del dic["_id"]
-		print 
-		print "data_finished",dic["myname"],dic["input_values"],dic["output_values"]
-		print 
+		print() 
+		print( "data_finished",dic["myname"],dic["input_values"],dic["output_values"] )
+		print()
 		self._jobnode_finished_db.insert_one(dic)
 
 
@@ -285,16 +292,23 @@ class JobNode:
                 elif status=="finished":
                         initialstate=1
 		else:
-			print "state2number(),status error",status
+			print( "state2number(),status error",status )
 			sys.exit(1000001)
 		return initialstate
 
 
 	def check_and_set_dic(self,key,value):
+		found=False
 		if key in self._dic:
+			if key in self._accept_dic:
+				if value in self._accept_dic[key]:
+					found=True
+			else:
+				found=True
+		if found:
 			self._dic[key]=value
 		else:
-			print "unknown key,key=",key,value
+			print( "unknown key,key=",key,value )
 			sys.exit(30000)
 
 
@@ -305,21 +319,21 @@ class JobNode:
 
 		iop=self._dic["input_operation_type"]
 
-		print "iop=",iop,self._dic[self._mainkey], self._dic["status"]
+		#print "iop=",iop,self._dic[self._mainkey], self._dic["status"]
 
 		if self._dic["status"]=="created":
 			#check_all_the_port
-			#print "check input port", self._dic[self._mainkey]
-			#print "input_ports=", self._dic["input_ports"]
-			#print "input_values=",self._dic["input_values"]
+
+
+
 			iport=InputPortOperation(self._dic["input_ports"],self._dic["input_values"],iop=iop)
 			found,values=iport.get() 
 			if found:  # now all the data are in the input ports
 				# change the status
-				print 
-				print "start ",self._dic[self._mainkey]
-				print "seld._dic=",self._dic
-				print 
+				print() 
+				print( "start ",self._dic[self._mainkey] )
+				#print "seld._dic=",self._dic
+				print() 
 				#self._dic["status"]="running"
 				self.check_and_set_dic("status","running")
 				#self._dic["input_values"]=values
@@ -334,19 +348,19 @@ class JobNode:
 				inputvalues=self._dic["input_values"]
 				outputvalues=self._dic["output_values"]
 				# outputvalues are used to check ouput variables
-				#print
-				#print "calling process"
-				print "inputvalues=",inputvalues
-				#print "outputvalues=",inputvalues
+
+
+				print( "inputvalues=",inputvalues )
+
 				# outputvalues=self._func(inputvalues,outputvalues)
 				func=self._dic["func"]
-				#print "cmd=",func
+
 				funcstyle=funcStyle()
 				funcstyle.from_dic(func)
-				funcstyle.show()
+				#funcstyle.show()
 				ret,outputvalues=funcstyle.run(inputvalues,outputvalues)
-				print "after run, outputvalues=",outputvalues
-				print 
+				print( "after run, outputvalues=",outputvalues )
+				print()
 				#self._dic["output_values"]=outputvalues
 				self.check_and_set_dic("output_values",outputvalues)
 				#self._dic["status"]="finished"
@@ -383,25 +397,25 @@ class InputPortOperation:
 
 	def reset_data(self):
 		thisfunc="InputPortOperation:reset_data"
-		print thisfunc,"self._valuelist",self._valuelist
-		print thisfunc,"self._portlist",self._portlist
+		#print thisfunc,"self._valuelist",self._valuelist
+		#print thisfunc,"self._portlist",self._portlist
 		templatedb=LinkDB()
 		for var in self._valuelist:
 			linklist=self._portlist[var]
 			key= self._dataflowdb._mainkey
 			for link in linklist:
-				print
-				print thisfunc,"delete",link
+				#print
+				#print thisfunc,"delete",link
 				template_dic=templatedb.find_one({templatedb._mainkey:link})
-				print thisfunc," template_dic",template_dic,"find",{key:link}
+				#print thisfunc," template_dic",template_dic,"find",{key:link}
 				if template_dic["creation"]=="dynamic":
-					print "search",{key:link}
+					#print "search",{key:link}
 					result=self._dataflowdb.find_one({key:link})
-					print "find",result
+					#print "find",result
 					result=self._dataflowdb.delete_many({key:link})
 					# error 
 					if result.deleted_count>1:
-						print "reset_data, something is wrong", result.deleted_count
+						print( "reset_data, something is wrong", result.deleted_count )
 						sys.exit(30000)
 				
 			
@@ -413,19 +427,19 @@ class InputPortOperation:
 		elif self._iop=="N_OR":
 			ret=self.getN_OR()
 		else:
-			print "iop error", self._iop
+			print( "iop error", self._iop )
 			sys.exit(1000)
 		return ret
 	def get1(self):
 		valuelist={}
 		found=1
 		for var in self._valuelist:
-			#print "get1,var=",var
-			#print "get1,portlist",self._portlist[var]
+
+
 			link=self._portlist[var][0] # assume that the number of the link to each port is one
 			key= self._dataflowdb._mainkey
 			value=self._dataflowdb.find_one({key:link})
-			#print "value=",value
+
 			if value:
 				valuelist[var]=value["value"]
 				found = found and 1
@@ -443,10 +457,10 @@ class InputPortOperation:
 		    var=self._valuelist.keys()[0]
 		
                     links=self._portlist[var]
-		    print "links=",links
+		    #print "links=",links
 		    for link in links:
                         value=self._dataflowdb.find_one({"data_id":link})
-			print "---> found , link, value=",value
+			#print "---> found , link, value=",value
                         if value:
                                 valuelist.append(value["value"])
                                 found = found or 1
@@ -457,18 +471,18 @@ class InputPortOperation:
                 return found , {var:valuelist}
 
         def getN_AND(self):
-		print "getN_AND,start, valuelist",self._valuelist
+		#print "getN_AND,start, valuelist",self._valuelist
                 valuelist=[]
                 found=1
                 #for var in self._valuelist:  # assume that len(self._valuelist)==1
                 if True:
                     var=self._valuelist.keys()[0]
-		    print "portlist",self._portlist,self._portlist[var]
+		    #print "portlist",self._portlist,self._portlist[var]
 
                     links=self._portlist[var]
                     for link in links:
                         value= self._dataflowdb.find_one({"data_id":link})
-			print "found , link, value=",value
+			#print "found , link, value=",value
                         if value:
                                 valuelist.append(value["value"])
                                 found = found and 1
@@ -476,7 +490,7 @@ class InputPortOperation:
                                 valuelist.append(None)
                                 found = found and 0
 
-		print "getN_AND,result",found,valuelist
+		#print "getN_AND,result",found,valuelist
                 return found , {var:valuelist}
 
 
@@ -490,26 +504,26 @@ class OutputPortOperation:
 		self._templatedb= LinkDB()
 	def put(self):
 		thisfunc="OutputPortOperation:put"
-		print thisfunc,"put,value=",self._valuelist
-		print thisfunc,"put,port=", self._portlist
+		#print thisfunc,"put,value=",self._valuelist
+		#print thisfunc,"put,port=", self._portlist
                 for var in self._valuelist:
 			if self._valuelist[var] is None:
 				continue
                         portlist=self._portlist[var]
-			#print "postlist",portlist
+
 			for link in portlist:
 				key=self._templatedb._mainkey
 				template=self._templatedb.find_one({key:link})
-				print thisfunc,"template",template
+				#print thisfunc,"template",template
 				if template["treatment"]=="replace":
 					dic={"data_id":link, "value": self._valuelist[var]}
-					print
-					print thisfunc,"outputport, clear_insert",dic
-					print
-					print thisfunc,"key,link=",{self._dataflowdb._mainkey:link}
-					print 
+					#print
+					#print thisfunc,"outputport, clear_insert",dic
+					#print
+					#print thisfunc,"key,link=",{self._dataflowdb._mainkey:link}
+					#print 
 					found = self._dataflowdb.find_one({self._dataflowdb._mainkey:link})
-					print thisfunc,"found,value=",found
+					#print thisfunc,"found,value=",found
 					if found:
 						self._dataflowdb.update(dic)
 					else:
@@ -522,7 +536,7 @@ class OutputPortOperation:
 					else:
 						self._dataflowdb.insert_one(dic)
 				else:
-					print "template keyword error"
+					print( "template keyword error" )
 					sys.exit(5000)
 
 
@@ -531,11 +545,15 @@ class jobNetworkTemplate:
 	def __init__(self,parent,child,id_,creation="static",treatment="replace"):
 		""" creation = statis|dynamic
 			treatment = replace|append  """
+
+		self._accept_dic = { "creation":["dynamic","static"],
+				"treatment":["replace","append"] }
+
 		parent_node =parent[0]
 		parent_key =parent[1]
 		child_node =child[0]
 		child_key =child[1]
-		print "network_init",parent, child
+		#print "network_init",parent, child
 		if len(id_)==0:
 			id_=hash_generator.get( "".join([parent_node,parent_key,child_node,child_key]))
 		self._dic={"parent_node": parent_node,
@@ -545,10 +563,24 @@ class jobNetworkTemplate:
 		"link_id": id_,
 		"creation":creation,
 		"treatment":treatment }
+		# set again 
+		self.check_and_set_dic("creation",creation)
+		self.check_and_set_dic("treatment",treatment)
 
 	def check_and_set_dic(self,key,value):
+		found=False
 		if key in self._dic:
+			if key in self._accept_dic:
+				if value in self._accept_dic[key]:
+					found=True
+			else:
+				found=True
+		if found:
 			self._dic[key]=value
+		else:
+			print( "failed to find ",key,":",value,"in default list" )
+			print( "programming error" )
+			sys.exit(500001)
 		
 class JobNetwork:
         """define network. This is a helper class.
@@ -572,15 +604,12 @@ class JobNetwork:
                 parent_name=parent[0]
 		parent_dic= nodedb.find_one({"myname":parent_name})
                 parent_key=parent[1]
-		#print "node--->"
-		#print parent_dic
-		#print "<---node"
-		#print parent_key
-		#print "output_ports=",parent_dic["output_ports"]
+
+
                 if parent_key in parent_dic["output_ports"]:
                         parent_dic["output_ports"][parent_key].append( link_id )
                 else:
-                        print "failed to connect",parent ,"with", link_id
+                        print( "failed to connect",parent ,"with", link_id )
                         sys.exit(1000)
 		nodedb.update(parent_dic) 
 
@@ -591,7 +620,7 @@ class JobNetwork:
                 if child_key in child_dic["input_ports"]:
                         child_dic["input_ports"][child_key].append( link_id )
                 else:
-                        print "failed to connect",child ,"with", link_id
+                        print( "failed to connect",child ,"with", link_id )
                         sys.exit(1001)
 		nodedb.update( child_dic)
 
@@ -606,12 +635,13 @@ class JobnodeList():
                 for node in self._list:
                         ret= node.start()
                         if ret==1:
-                                return 
+                                return  True
+		return False
         def show(self):
-		print "<jobnodelist.show"
+		print( "<jobnodelist.show" )
                 for i,x in enumerate(self._list):
 			x.show()
-		print "jobnodelist.show>"
+		print( "jobnodelist.show>" )
 
 class DBList:
 	"""a list of DB"""
@@ -699,15 +729,20 @@ def test1():
 		nodelist.append(node4)
 		nodelist.append(node5)
 
-	print
-	print "start"
-	print 
+	print( )
+	print( "start" )
+	print( )
 
         for i in range(11):
-                print "<-------------------------node status",i
-                nodelist.start()
+                print( "<-------------------------node status",i )
+                r=nodelist.start()
+		if not r:
+			print ()
+			print ("nothing left" )
+			print ()
+			break
 
-	print "------------------end-------------------------"
+	print( "------------------end-------------------------")
 	nodelist.show()
 
 test1()
