@@ -34,7 +34,7 @@ for ip in  inputvalue:
 i=sum(iv)
 
 
-if i<10:
+if i<5:
     for key in ["x4"]:
 	k=key[0:1]
 	iadd=0

@@ -1,10 +1,6 @@
 
 
-all:  autc2
-autc1:
-	python autc1.py
-	dot -Tpng graph.dot > graph.png
+all:  autcc4
 
-autc2:
-	python autc2.py
-	dot -Tpng graph.dot > graph.png
+autcc4:
+	python autcc4.py

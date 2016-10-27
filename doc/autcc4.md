@@ -59,3 +59,6 @@ save jobnode when status=finished.
 data structure is the same as nodedb.jobnode.
 
 
+![sample01](https://raw.githubusercontent.com/nim-hrkn/autcc.v2/dynamic/image/run01.gif/movie.gif "sample01")
+![sample02](https://raw.githubusercontent.com/nim-hrkn/autcc.v2/dynamic/image/run02.gif/movie.gif "sample02")
+![sample03](https://raw.githubusercontent.com/nim-hrkn/autcc.v2/dynamic/image/run03.gif/movie.gif "sample03")
