@@ -19,6 +19,7 @@ cd $PBS_O_WORKDIR
 LANG=C
 module list > _module.txt 2>&1
 /home/kino/work/helloworld/hello
+echo '{"status":"finished"}' > _status.json
 """
 	def __init__(self):
 		pass
@@ -29,26 +30,23 @@ module list > _module.txt 2>&1
 		return y
 
 class remoteExec:
-	def __init__(self, hostname,port,username,private_key_file,remoteworkbasedir,localworkbasedir,localrunfile,id_,bachcmd, queue_cond ):
+	#def __init__(self, hostname,port,username,private_key_file,remoteworkbasedir,localworkbasedir,localrunfile,id_,bachcmd, queue_cond ):
+	def __init__(self, dic ):
 		self._cwd= os.getcwd()
-                self._hostname = hostname
-                self._port  =  port
-                self._username = username
-                self._private_key_file = private_key_file
-                self._remoteworkbasedir = remoteworkbasedir
-		self._id = id_
-                self._remoteworkdir = os.path.join(remoteworkbasedir,id_)
-		self._batchcmd = batchcmd
-		self._localrunfile= localrunfile
+                self._hostname = dic["hostname"]
+                self._port  =  dic["port"]
+                self._username = dic["username"]
+                self._private_key_file = dic["private_key_file"]
+                self._remoteworkbasedir = dic["remoteworkbasedir"]
+		self._id = dic["id_"]
+                self._remoteworkdir = os.path.join(self._remoteworkbasedir,self._id)
+		self._batchcmd = dic["batchcmd"]
+		self._localrunfile= dic["localrunfile"]
+		self._localworkbasedir = dic["localworkbasedir"]
+                self._queue_cond= dic["queue_cond"]  # {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
 
 		self._delete_remotefiles=False
 
-		os.chdir(localworkbasedir)
-                self._localworkbasedir = os.getcwd()  # make it absolute path
-		print "self._localworkbasedir=",self._localworkbasedir
-		self.restore_workdir()
-
-                self._queue_cond= queue_cond  # {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
 		self.connect()
 
 	def connect(self):
@@ -57,6 +55,7 @@ class remoteExec:
                 self._ssh.connect(self._hostname, self._port,self._username, key_filename=self._private_key_file)
 
 	def change_workdir(self):
+		print "self._localworkbasedir=",self._localworkbasedir
 		os.chdir( self._localworkbasedir )
 	def restore_workdir(self):
 		os.chdir(self._cwd)
@@ -65,6 +64,7 @@ class remoteExec:
 		self.change_workdir()
                 sftp = self._ssh.open_sftp()
                 try:
+			print "sftp.put",os.getcwd(), localrunfile
                         ret =sftp.put(localrunfile,os.path.join(self._remoteworkdir,localrunfile))
                 except:
 			os.chdir(cwd)
@@ -157,7 +157,8 @@ class remoteExec:
 				os.chdir(cwd)
 				return  r
 		os.chdir(cwd)
-		return None
+		self._dic["status"]="no_result"
+		return 0
 
         def qdel( self, jobid):
 		cwd=os.getcwd()
@@ -195,8 +196,8 @@ class remoteExec:
 		run_result= self.run( cmd )
 		get_result= self.get_a_file( filename )
 	
-		r=subprocess.call("pwd",shell=True)
-		r=subprocess.call("ls -l",shell=True)
+		#r=subprocess.call("pwd",shell=True)
+		#r=subprocess.call("ls -l",shell=True)
 		cmd=" ".join(["tar xvfz",filename])
 		print "cmd=",cmd
 		r=subprocess.call(cmd,shell=True)
@@ -257,7 +258,6 @@ class remoteExec:
                 self.restore_workdir()
 
 
-
 	def __del__(self):
 		if self._ssh:
 			self._ssh.close()
@@ -265,21 +265,37 @@ class remoteExec:
 
 
 if __name__ =="__main__" :
-	hostname = 'asahi01'
-        port  = 22
-        username = 'kino'
-        private_key_file = '/home/kino/.ssh/id_rsa.2013'
-	remoteworkbasedir= "/home/kino/tmp"
 
-	id_= sys.argv[2]
-	batchcmd={ "qsub":"qsub2", "qstat":"qstat", "qdel":"qdel" }
+	if (len(sys.argv)!=3) :
+		sys.exit(10)
 
-	localworkbasedir="/home/kino/work/workflow/myxsub/work"
-	localrunfile="run2.sh"
+	#hostname = 'asahi02'
+        #port  = 22
+        #username = 'kino'
+        #private_key_file = '/home/kino/.ssh/id_rsa.2013'
+	#remoteworkbasedir= "/home/kino/tmp"
+	#id_= sys.argv[2]
+	#batchcmd={ "qsub":"qsub2", "qstat":"qstat", "qdel":"qdel" }
+	#localworkbasedir="/home/kino/work/workflow/myxsub/work"
+	#localrunfile="run2.sh"
+        #queue_cond={"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
+	#id_= sys.argv[2]
 
-        queue_cond={"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
+	qsubdic={}
+	qsubdic[ "hostname" ] = 'asahi02'
+        qsubdic[ "port" ]  = 22
+        qsubdic[ "username" ] = 'kino'
+        qsubdic[ "private_key_file" ] = '/home/kino/.ssh/id_rsa.2013'
+	qsubdic[ "remoteworkbasedir" ] = "/home/kino/tmp"
+	qsubdic[ "batchcmd" ] = { "qsub":"qsub2", "qstat":"qstat", "qdel":"qdel" }
+	qsubdic[ "localworkbasedir" ] ="/home/kino/work/workflow/myxsub/work"
+	qsubdic[ "localrunfile"] = "run2.sh"
+        qsubdic[ "queue_cond" ] = {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
+	qsubdic[ "id_" ] = sys.argv[2]
 
-	doit= remoteExec(hostname,port,username,private_key_file,remoteworkbasedir,localworkbasedir,localrunfile,id_,batchcmd,queue_cond)
+
+	#doit= remoteExec(hostname,port,username,private_key_file,remoteworkbasedir,localworkbasedir,localrunfile,id_,batchcmd,queue_cond)
+	doit= remoteExec(qsubdic)
 
 	run=int(sys.argv[1])
 	print "run=",run
