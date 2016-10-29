@@ -50,31 +50,40 @@ class hashGenerator:
 
 hash_generator=hashGenerator("hiori kino")
 
+
+def funcStyle_json_template( func, inputsytle, outputstyle ):
+                if len(inputstyle)==0:
+                        inputstyle={"type":"json", "filename":["_input.json"]}
+
+                if len(outputstyle)==0:
+                        outputstyle={"type":"json","templatefilename":["_outputtemplate.json"],"filename":["_output.json"]}
+                dic={"cmd":func, "inputstyle":inputstyle, "outputstyle":outputstyle}
+		return dic 
+
+def funcStyle_eachfile_template(func, inputstyle, outputstyle ):
+                if len(inputstyle)==0:
+                        inputstyle={"type":"eachfile"}
+
+                if len(outputstyle)==0:
+                        outputstyle={"type":"eachfile"}
+                dic={"cmd":func, "inputstyle":inputstyle, "outputstyle":outputstyle}
+                return dic
+
+
 class funcStyle:
-	def __init__(self,func="",inputstyle="",outputstyle=""):
-		if len(inputstyle)==0:
-			inputstyle={"type":"json", "filename":["_input.json"]}
-	
-		if len(outputstyle)==0:
-			outputstyle={"type":"json","templatefilename":["_outputtemplate.json"],"filename":["_output.json"]}
-		self._dic={"cmd":func, "inputstyle":inputstyle, "outputstyle":outputstyle} 
+	def __init__(self,func="",inputstyle="",outputstyle="", iotype="eachfile"):
+
+		if iotype=="json":
+			self._dic = funcStyle_json_template ( func, inputstyle,  outputstyle )
+		elif iotype=="eachfile":
+			self._dic = funcStyle_eachfile_template ( func,  inputstyle,  outputstyle )
+
 		self._dryrun=False
 
 	def from_dic(self,func):
 		self._dic=func
 
-	def run(self,inputvalues,outputvalues,workdir):
-
-		#for key in self._dic:
-		#	print "key=",key
-		#	print self._dic[key]
-		#print "self.run()",self._dic
-		#print "inputstyle", self._dic["inputstyle"]
-		cwd=os.getcwd()
-		os.mkdir(workdir)
-		os.chdir(workdir)
-
-		print( "... >  workbasedir=",workdir  )
+	def make_input_output_json(self, inputvalues,outputvalues):
 
 		inputfilename=self._dic["inputstyle"]["filename"][0]
 
@@ -86,6 +95,89 @@ class funcStyle:
 		with open(outputfilename,"w") as f:
 			json.dump(outputvalues,f)
 
+	def make_input_output(self, inputvalues,outputvalues):
+		t = self._dic["inputstyle"]["type"]
+		if t =="json":
+			self.make_input_output_json( inputvalues,outputvalues)
+		elif t =="eachfile":
+			self.make_input_output_eachfile( inputvalues,outputvalues) 
+		else:
+			print( "make_input_output, unsupported sytle", self["inputsytle"] )
+			sys.exit(10000)
+
+        def make_input_output_json(self, inputvalues,outputvalues):
+                inputfilename=self._dic["inputstyle"]["filename"][0]
+                with open(inputfilename,"w") as f:
+                        json.dump(inputvalues,f)
+
+                outputfilename=self._dic["outputstyle"]["templatefilename"][0]
+                with open(outputfilename,"w") as f:
+                        json.dump(outputvalues,f)
+
+	def make_input_output_eachfile(self,inputvalues,outputvalues):
+		for key in inputvalues:
+			with open( key, "w" ) as f:
+				for x in inputvalues[key]:
+					f.write(x+"\n")
+                for key in outputvalues:
+                        with open( key, "w" ) as f:
+				v= outputvalues[key]
+				if v is None:
+					s=""
+				else:
+					s=map(v,string)
+                                f.write( s )
+
+	def make_output(self, outputvalues):
+		t= self._dic["outputstyle"]["type"]
+		if t =="json":
+			found, outputvalues = self.make_output_json( outputvalues )
+		elif t =="eachfile":
+			found, outputvalues = self.make_output_eachfile(outputvalues )
+		else:
+			print( "make_output, unsupported sytle", self._dic["outputstyle"] )
+			sys.exit(100001)
+
+		return found, outputvalues
+
+	def make_output_json(self,outputvalues):
+
+		outputfilename=self._dic["outputstyle"]["filename"][0]
+		outputvalues=[]
+
+		found=0
+                with open(outputfilename,"r") as f:
+			outputvalues=json.load(f)
+			found=1
+
+		return found, outputvalues 
+
+	def make_output_eachfile(self, outputvalues ):
+		foundlist=[]
+                for key in outputvalues:
+			print( "open key=", key )
+                        with open( key, "r" ) as f:
+                                lines=f.readlines()
+				print( "make_output_eachfile", lines )
+				outputvalues[key] = lines[0]
+				foundlist.append(1)
+		
+		if sum(foundlist)==len(outputvalues):
+			found=1
+		else:
+			found=0
+		return found, outputvalues
+
+	def run(self,inputvalues,outputvalues,workdir):
+
+		cwd=os.getcwd()
+		os.mkdir(workdir)
+		os.chdir(workdir)
+
+		print( "... >  workbasedir=",workdir  )
+
+		self.make_input_output( inputvalues,outputvalues)  
+
 		cmd=self._dic["cmd"]
 
 		ret=-1
@@ -95,11 +187,10 @@ class funcStyle:
 		if ret!=0:
 			sys.exit(30000)
 
-		outputfilename=self._dic["outputstyle"]["filename"][0]
-		outputvalues=[]
-                with open(outputfilename,"r") as f:
-			outputvalues=json.load(f)
-			found=1
+		found, outputvalues = self.make_output(outputvalues)
+
+		if ret ==0 and found==0 : 
+			ret = 1
 
 		os.chdir(cwd)
 
@@ -239,7 +330,6 @@ class JobNode:
 
                 # "data_life":data_life }
 		#self._dic.update(self.template(input_keys,func,output_keys))
-
 
 		self._dic=self._jobnode_db.insert_and_find_one(self._dic)
 
@@ -387,7 +477,9 @@ class JobNode:
 				funcstyle=funcStyle()
 				funcstyle.from_dic(func)
 				#funcstyle.show()
+
 				ret,outputvalues=funcstyle.run(inputvalues,outputvalues,workdir)
+
 				print( "after run, outputvalues=",outputvalues )
 				print()
 				#self._dic["output_values"]=outputvalues
@@ -687,7 +779,7 @@ class JobnodeList():
 		return "{"+"|".join(xlist)+"}"
 
 	def graphviz(self):
-		self._graphviz_dryrun= False
+		self._graphviz_dryrun= True
 		#name = "cluster%03i.dot" % (self._graphviz_id) 
 		name= "cluster.dot"
 		self._graphviz_id += 1
@@ -768,13 +860,20 @@ def test1(run=1):
 
 	workbasedir="/home/kino/work/workflow/work"
 
-	if True:
+	iostyle="numeric_file"
+
+	if iostyle == "numeric_json":
 		funcA= "python /home/kino/work/workflow/numeric/funcA.py"
 		funcB= "python /home/kino/work/workflow/numeric/funcB.py"
 		funcC= "python /home/kino/work/workflow/numeric/funcC.py"
 		funcmerge= "python /home/kino/work/workflow/numeric/funcmerge.py"
 		funcOR= "python /home/kino/work/workflow/numeric/funcOR.py"
-	else:
+	elif iostyle == "numeric_file":
+		funcA= "python /home/kino/work/workflow/numeric_file/funcA.py"
+		funcB= "python /home/kino/work/workflow/numeric_file/funcB.py"
+		funcC= "python /home/kino/work/workflow/numeric_file/funcC.py"
+		funcmerge= "python /home/kino/work/workflow/numeric_file/funcmerge.py"
+	elif iostyle == "string_json":
 		funcA= "python /home/kino/work/workflow/string/funcA.py"
 		funcB= "python /home/kino/work/workflow/string/funcB.py"
 		funcC= "python /home/kino/work/workflow/string/funcC.py"
@@ -812,7 +911,7 @@ def test1(run=1):
 	    loopmerge=JobNode("loopmerge",["m1"],funcStyle(funcmerge)._dic,["x1"],workbasedir, input_operation_type="N_AND")
 	    for i in range(6):
 		name="loop"+str(i)
-		nodeloop=JobNode(name , ["i1"],funcStyle(funcB)._dic,["o1"], workbasedir)
+		nodeloop=JobNode(name , ["i1"],funcStyle(funcC)._dic,["o1"], workbasedir)
 		graph.define(["node2","x2"],[name,"i1"])
 		graph.define([name,"o1"],["loopmerge","m1"])
 		nodelist.append(nodeloop)
@@ -860,5 +959,5 @@ def test1(run=1):
 	nodelist.show()
 
 
-test1(run=1)
+test1(run=2)
 
