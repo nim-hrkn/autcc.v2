@@ -22,7 +22,7 @@ class qsubdicTemplate(object):
                 self._dic[ "id_" ] = None
 
 class qsubdic_NIMS_qsub2_kino(qsubdicTemplate):
-        def __init__(self,id_):
+        def __init__(self,id_=None):
 		super(qsubdic_NIMS_qsub2_kino, self).__init__()
                 self._dic[ "hostname" ] = 'asahi02'
                 self._dic[ "port" ]  = 22
