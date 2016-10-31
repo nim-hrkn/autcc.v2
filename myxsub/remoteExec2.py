@@ -7,6 +7,35 @@ import subprocess
 import json
 
 
+class qsubdicTemplate(object):
+        def __init__(self):
+                self._dic={}
+                self._dic[ "hostname" ] = None
+                self._dic[ "port" ]  = None
+                self._dic[ "username" ] = None
+                self._dic[ "private_key_file" ] = None
+                self._dic[ "remoteworkbasedir" ] = None
+                self._dic[ "batchcmd" ] = None
+                self._dic[ "localworkbasedir" ] = None
+                self._dic[ "localrunfile"] = None
+                self._dic[ "queue_cond" ] = None
+                self._dic[ "id_" ] = None
+
+class qsubdic_NIMS_qsub2_kino(qsubdicTemplate):
+        def __init__(self,id_):
+		super(qsubdic_NIMS_qsub2_kino, self).__init__()
+                self._dic[ "hostname" ] = 'asahi02'
+                self._dic[ "port" ]  = 22
+                self._dic[ "username" ] = 'kino'
+                self._dic[ "private_key_file" ] = '/home/kino/.ssh/id_rsa.2013'
+                self._dic[ "remoteworkbasedir" ] = "/home/kino/tmp"
+                self._dic[ "batchcmd" ] = { "qsub":"qsub2", "qstat":"qstat", "qdel":"qdel" }
+                self._dic[ "localworkbasedir" ] ="/home/kino/work/workflow/myxsub/work"
+                self._dic[ "localrunfile"] = "run2.sh"
+                self._dic[ "queue_cond" ] = {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
+                self._dic[ "id_" ] = id_
+
+
 class runscriptTemplate:
 	__cmd="""#!/bin/bash -x
 #QSUB2 queue %%QUEUE%%
@@ -267,6 +296,8 @@ class remoteExec:
 if __name__ =="__main__" :
 
 	if (len(sys.argv)!=3) :
+		print( "argument" )
+		print(  "thisprogram {actionid} {id}" )
 		sys.exit(10)
 
 	#hostname = 'asahi02'
@@ -281,17 +312,21 @@ if __name__ =="__main__" :
         #queue_cond={"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
 	#id_= sys.argv[2]
 
-	qsubdic={}
-	qsubdic[ "hostname" ] = 'asahi02'
-        qsubdic[ "port" ]  = 22
-        qsubdic[ "username" ] = 'kino'
-        qsubdic[ "private_key_file" ] = '/home/kino/.ssh/id_rsa.2013'
-	qsubdic[ "remoteworkbasedir" ] = "/home/kino/tmp"
-	qsubdic[ "batchcmd" ] = { "qsub":"qsub2", "qstat":"qstat", "qdel":"qdel" }
-	qsubdic[ "localworkbasedir" ] ="/home/kino/work/workflow/myxsub/work"
-	qsubdic[ "localrunfile"] = "run2.sh"
-        qsubdic[ "queue_cond" ] = {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
-	qsubdic[ "id_" ] = sys.argv[2]
+#	qsubdic={}
+#	qsubdic[ "hostname" ] = 'asahi02'
+#        qsubdic[ "port" ]  = 22
+#	qsubdic[ "hostname" ] = "localhost"
+#	qsubdic[ "port" ] = 3052
+#        qsubdic[ "username" ] = 'kino'
+#        qsubdic[ "private_key_file" ] = '/home/kino/.ssh/id_rsa.2013'
+#	qsubdic[ "remoteworkbasedir" ] = "/home/kino/tmp"
+#	qsubdic[ "batchcmd" ] = { "qsub":"qsub2", "qstat":"qstat", "qdel":"qdel" }
+#	qsubdic[ "localworkbasedir" ] ="/home/kino/work/workflow/myxsub/work"
+#	qsubdic[ "localrunfile"] = "run2.sh"
+#        qsubdic[ "queue_cond" ] = {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
+##	qsubdic[ "id_" ] = sys.argv[2]
+
+	qsubdic = qsubdic_NIMS_qsub2_kino(sys.argv[2])._dic
 
 
 	#doit= remoteExec(hostname,port,username,private_key_file,remoteworkbasedir,localworkbasedir,localrunfile,id_,batchcmd,queue_cond)
