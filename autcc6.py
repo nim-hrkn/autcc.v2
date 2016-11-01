@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 """ Copyright 2016, Hiori Kino
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,6 +31,10 @@ import time
 
 from graphviz import Digraph
 
+#sys.path.append('/home/kino/work/workflow/myxsub')
+
+#from myxsub.remoteExec2 import qsubdic_NIMS_qsub2_kino
+import myxsub.remoteExec3
 
 class hashGenerator:
         def __init__(self,key=""):
@@ -58,27 +63,44 @@ def funcStyle_json_template( func, inputsytle, outputstyle ):
                 if len(outputstyle)==0:
                         outputstyle={"type":"json","templatefilename":["_outputtemplate.json"],"filename":["_output.json"]}
                 dic={"cmd":func, "inputstyle":inputstyle, "outputstyle":outputstyle}
+		dic.update( { "jobid": None } )
 		return dic 
 
-def funcStyle_eachfile_template(func, inputstyle, outputstyle ):
+def funcStyle_eachfile_template(func, inputstyle, outputstyle, simulator=None ):
                 if len(inputstyle)==0:
                         inputstyle={"type":"eachfile"}
 
                 if len(outputstyle)==0:
                         outputstyle={"type":"eachfile"}
                 dic={"cmd":func, "inputstyle":inputstyle, "outputstyle":outputstyle}
+		dic.update( { "simulator": simulator } )
+		dic.update( { "jobid": None } )
                 return dic
 
 
 class funcStyle:
-	def __init__(self,func="",inputstyle="",outputstyle="", iotype="eachfile"):
+	def __init__(self,func="",inputstyle="",outputstyle="", iotype="eachfile", simulator=None, id_ =None):
 
 		if iotype=="json":
 			self._dic = funcStyle_json_template ( func, inputstyle,  outputstyle )
 		elif iotype=="eachfile":
 			self._dic = funcStyle_eachfile_template ( func,  inputstyle,  outputstyle )
 
+		if simulator is not None:
+			print( "funcStyle1, simulator", self._dic )
+			self._dic["simulator"]= simulator._dic
+			self._dic["localworkbasedir"] = simulator._dic["localworkbasedir"] 
+			print( "funcStyle2, simulator", self._dic )
+		else:
+			self._dic["simulator"] = None
+
+		self._dic.update( {"id_":id_} )
+		self._dic.update( {"jobid":None} )
+
 		self._dryrun=False
+
+	def set_id(self, id_ ):
+		self._dic[ "id_" ] = id_ 
 
 	def from_dic(self,func):
 		self._dic=func
@@ -119,6 +141,7 @@ class funcStyle:
 			with open( key, "w" ) as f:
 				for x in inputvalues[key]:
 					f.write(x+"\n")
+				print( "file", key," is made at",os.getcwd() )
                 for key in outputvalues:
                         with open( key, "w" ) as f:
 				v= outputvalues[key]
@@ -127,6 +150,7 @@ class funcStyle:
 				else:
 					s=map(v,string)
                                 f.write( s )
+				print( "file", key," is made at", os.getcwd() )
 
 	def make_output(self, outputvalues):
 		t= self._dic["outputstyle"]["type"]
@@ -170,6 +194,62 @@ class funcStyle:
 
 	def run(self,inputvalues,outputvalues,workdir):
 
+		print ()
+		print ( "dic= ", self._dic )
+		sim=self._dic["simulator"]
+
+		if sim["runtype"]=="batch":
+			return self.run_remote( inputvalues,outputvalues,workdir )
+		elif sim["runtype"]=="foreground":
+			return self.run_local( inputvalues,outputvalues,workdir )
+		else:
+			print ( "unknown runtpe",sim["runtype"] )
+			print ( "sim=", sim )
+			sys.exit(4000)
+
+	def run_remote(self, inputvalues,outputvalues,workdir ):
+
+		sim= self._dic["simulator"]
+                cwd=os.getcwd()
+                os.mkdir(workdir)
+                os.chdir(workdir)
+
+		self.make_input_output( inputvalues,outputvalues)  
+
+		sim["id_"]= self._dic["id_"]
+		print( "simulator ", sim )
+		print( "run_remote, id_=", self._dic["id_"]  )
+		job = myxsub.remoteExec3.remoteExec(sim)
+		ret,status =  job.send_and_run()
+		self._dic["jobid"]= job._jobid
+		print( "job._jobid", job._jobid )
+		print( "job._dic=", job._dic )
+		print( "ret,status=",ret , status )
+		print( "self._dic=",self._dic )
+
+		os.chdir(cwd)
+
+		return [ ret, outputvalues, status, job._jobid[0] ]
+
+	def qstat(self):
+		sim= self._dic["simulator"]
+		jobid=self._dic["jobid"]
+		jobid=jobid[0]
+		job = myxsub.remoteExec3.remoteExec(sim)
+		r=job.qstat(jobid)
+		self._dic["status"] = job._dic["status"]
+		return r,job._dic["status"]
+
+	def pack_and_get_dir(self):
+                sim= self._dic["simulator"]
+                jobid=self._dic["jobid"]
+                job = myxsub.remoteExec3.remoteExec(sim)
+                r=job.pack_and_get_dir()
+                self._dic["status"] = job._dic["status"]
+                return r,job._dic["status"]
+
+	def run_local(self,inputvalues,outputvalues,workdir):
+
 		cwd=os.getcwd()
 		os.mkdir(workdir)
 		os.chdir(workdir)
@@ -194,7 +274,9 @@ class funcStyle:
 
 		os.chdir(cwd)
 
-		return [ret,outputvalues]
+		jobid=None
+
+		return [ret,outputvalues,"finished",jobid]
 
 	def show(self):
 		print( "<funcStyle.show()" )
@@ -278,9 +360,6 @@ class JobNodeTemplate:
 		self._dic.update(self.keys_initialvalues(input_keys,output_keys))
 		self._mainkey="myname"
 
-		#possible_var = [ {"status":["created","running","finished"]} ]
-
-
 	def keys_initialvalues(self,input_keys,output_keys):
 		input_port={}
 		for x in input_keys:
@@ -299,7 +378,6 @@ class JobNodeTemplate:
 		"exec_time":None , "exec_id":None,"finished_time":None,"status":"created"}
 		return dic
 
-
 class JobNode:
 	""" job node difinition"""
 	def __init__(self,myname,input_keys,func,output_keys,workbasedir, node_id="",input_operation_type="1",creation_type="static" ):  #,data_life="replace"):
@@ -316,11 +394,13 @@ class JobNode:
 
 		self._accept_dic = {"creation_type": ["dynamic","static"], 
 				"input_operation_type":["1","N_AND","N_OR"],
-				"status":["created","running","finished","waiting"]}
+				"status":["created","running","finished","waiting","queued"]}
 
 		if len(node_id)==0:
 			node_id=hash_generator.get(myname)
-		dic={ "node_id":node_id, "myname":myname, "func":func,
+
+		func.set_id(node_id) 
+		dic={ "node_id":node_id, "myname":myname, "func":func._dic,
 		"input_operation_type":input_operation_type ,"creation_type":creation_type,
 		"workbasedir": workbasedir }
 		for key in dic:
@@ -328,30 +408,10 @@ class JobNode:
 			#	self._dic[key]=dic[key]
 			self.check_and_set_dic(key,dic[key])
 
-                # "data_life":data_life }
-		#self._dic.update(self.template(input_keys,func,output_keys))
 
 		self._dic=self._jobnode_db.insert_and_find_one(self._dic)
 
 
-
-	#def template(self,input_keys,func,output_keys):
-	#	input_port={}
-	#	for x in input_keys:
-	#		input_port[x]= []
-	#	output_port= {}
-	#	for x in output_keys:
-	#		output_port[x]=[]
-	#	input_values={}
-	#	for x in input_keys:
-	#		input_values[x]= None
-	#	output_values={}
-	#	for x in output_keys:
-	#		output_values[x]=None
-	#	dic ={"input_ports":input_port, "output_ports":output_port, 
-	#	"input_values":input_values, "output_values":output_values,
-	#	"exec_time":None , "exec_id":None,"finished_time":None,"status":"created"}
-	#	return dic
 
 	def reset_dic(self):
                 input_values={}
@@ -392,28 +452,12 @@ class JobNode:
 
 	def save_finished_data(self):
 
-
-
 		dic=copy.deepcopy(self._dic)
 		del dic["_id"]
 		print() 
 		print( "data_finished",dic["myname"],dic["input_values"],dic["output_values"] )
 		print()
 		self._jobnode_finished_db.insert_one(dic)
-
-
-	#def state2number(self):
-	#	status=self._dic["status"]
-        #        if status=="created":
-        #                initialstate=0
-        #        elif status=="running":
-        #                initialstate=-100
-        #        elif status=="finished":
-        #                initialstate=1
-	#	else:
-	#		print( "state2number(),status error",status )
-	#		sys.exit(1000001)
-	#	return initialstate
 
 
 	def check_and_set_dic(self,key,value):
@@ -428,6 +472,8 @@ class JobNode:
 			self._dic[key]=value
 		else:
 			print( "unknown key,key=",key,value )
+			print( " in accept key?", key in self._accept_dic )
+			print( "dic=", self._dic )
 			sys.exit(30000)
 
 
@@ -439,7 +485,21 @@ class JobNode:
 
 		iop=self._dic["input_operation_type"]
 
-		#print "iop=",iop,self._dic[self._mainkey], self._dic["status"]
+		print( "initial state=",initialstate )
+		if initialstate in ["queued", "running"]:
+			func=self._dic["func"]
+			jobid=func["jobid"]
+                        funcstyle=funcStyle()
+                        funcstyle.from_dic(func)
+			print( "start, dic=",self._dic )
+			# qstat
+			r,status=funcstyle.qstat()
+			self._dic["status"]=status
+			print( "after funcstyle.qstat",r,status)
+			if self._dic["status"]=="finished":
+				funcstyle.pack_and_get_dir()
+				print ( "get data ")
+				sys.exit(10000)
 
 		if initialstate in ["created","waiting"] :
 			#check_all_the_port
@@ -450,47 +510,47 @@ class JobNode:
 				# change the status
 				print() 
 				print( "start ",self._dic[self._mainkey] )
-				#print "seld._dic=",self._dic
 				print() 
-				#self._dic["status"]="running"
 				self.check_and_set_dic("status","running")
-				#self._dic["input_values"]=values
 				self.check_and_set_dic("input_values",values)
 				today =datetime.datetime.today().__str__()
-				#self._dic["exec_id"] =  hash_generator.get(self._dic[self._mainkey]+today)
 				self.check_and_set_dic("exec_id",hash_generator.get(self._dic[self._mainkey]+today))
-				#self._dic["exec_time"]= today
 				self.check_and_set_dic("exec_time",today)
 				self.update_data()
 
 				inputvalues=self._dic["input_values"]
 				outputvalues=self._dic["output_values"]
-				workdir=os.path.join(self._dic["workbasedir"],self._dic["exec_id"])
-				# outputvalues are used to check ouput variables
 
+				print( "set  workdir, self._dic=", self._dic ) 
+				workdir=os.path.join(self._dic["workbasedir"],self._dic["exec_id"])
+				if "func" in self._dic:
+					if "localworkbasedir" in self._dic["func"]: 
+						if self._dic["func"]["localworkbasedir"] is not None:
+							workdir=os.path.join(self._dic["func"]["localworkbasedir"] ,self._dic["exec_id"])
 
 				print( "inputvalues=",inputvalues )
 
-				# outputvalues=self._func(inputvalues,outputvalues)
 				func=self._dic["func"]
 
 				funcstyle=funcStyle()
 				funcstyle.from_dic(func)
-				#funcstyle.show()
 
-				ret,outputvalues=funcstyle.run(inputvalues,outputvalues,workdir)
+				ret,outputvalues,status,jobid=funcstyle.run(inputvalues,outputvalues,workdir)
 
-				print( "after run, outputvalues=",outputvalues )
-				print()
-				#self._dic["output_values"]=outputvalues
-				self.check_and_set_dic("output_values",outputvalues)
-				#self._dic["status"]="finished"
-				self.check_and_set_dic("status","finished")
-				#self._dic["finished_time"]=today
-				self.check_and_set_dic("finished_time",today)
-				#self.update_data()
+				print( "after run, ret,outputvalues,status,jobid=",ret,outputvalues,status,jobid )
 
-				self.save_finished_data()
+				self.check_and_set_dic( "output_values",outputvalues )
+				self.check_and_set_dic( "status", status )
+				self.check_and_set_dic( "finished_time",today )
+
+				if jobid is not None:
+					print( "not simulator in dic" )
+					print( "self._dic=",self._dic )
+					self._dic["func"]["jobid"]=jobid
+					self._dic["status"]=status
+
+				if status=="finished": 
+					self.save_finished_data()
 				finalstate = self._dic["status"]
 
 				oport=OutputPortOperation(self._dic["output_values"],self._dic["output_ports"])
@@ -500,12 +560,14 @@ class JobNode:
 					pass
 				elif self._dic["creation_type"]=="dynamic":
 					self.reset_dic()
+
+				print(" new status", self._dic["myname"], self._dic["status"] )
 				self.update_data()
 
 				iport.reset_data()
 				
 
-		return ",".join([initialstate,finalstate])
+		return [initialstate,finalstate]
 
 
 class InputPortOperation:
@@ -759,10 +821,17 @@ class JobnodeList():
         def append(self,node):
                 self._list.append(node)
         def start(self):
-                for node in self._list:
+		n= len(self._list)
+		listdone=[]
+                for i,node in enumerate(self._list):
                         ret= node.start()
-                        if ret in ["created,finished","waiting,finished"]:
-                                return  True
+			listdone.append(ret)
+			print( "JObnodeList,node,ret=",node._dic["myname"],ret )
+			if (ret[0]=="create"  and ret[1]=="finished") or (ret[0]=="waiting" and ret[1]=="finished" ):
+				if i==n:
+                                	return  True
+				else:
+					return False
 		return False
         def show(self):
 		print( "<jobnodelist.show" )
@@ -779,7 +848,7 @@ class JobnodeList():
 		return "{"+"|".join(xlist)+"}"
 
 	def graphviz(self):
-		self._graphviz_dryrun= False
+		self._graphviz_dryrun= True
 		#name = "cluster%03i.dot" % (self._graphviz_id) 
 		name= "cluster.dot"
 		self._graphviz_id += 1
@@ -788,7 +857,6 @@ class JobnodeList():
 
 		for node in self._list:
 			dic=node.get_data()
-			print ("dic",dic)
 			iv=self.make_keylist(dic[ "input_values"])
 			ov=self.make_keylist(dic["output_values"])
 			input_operation_type = dic["input_operation_type"]
@@ -858,9 +926,12 @@ def test1(run=1):
 	dblist=DBList()
 	dblist.drop_all()
 
-	workbasedir="/home/kino/work/workflow/work"
+	workbasedir = "/home/kino/work/workflow/work"
 
-	iostyle="numeric_file"
+	simulator_asahi = myxsub.remoteExec3.qsubdic_NIMS_qsub2_kino()
+	simulator_localhost = myxsub.remoteExec3.qsubdic_localhost()
+
+	iostyle = "numeric_file"
 
 	if iostyle == "numeric_json":
 		funcA= "python /home/kino/work/workflow/numeric/funcA.py"
@@ -883,15 +954,14 @@ def test1(run=1):
         graph=JobNetwork()
         nodelist=JobnodeList()
 
-        node1= JobNode("node1", [],funcStyle(funcA)._dic,["x1","y1"], workbasedir )
+        node1= JobNode("node1", [],funcStyle(funcA, simulator=simulator_localhost),["x1","y1"], workbasedir )
         nodelist.append(node1)
 
 
-
 	if run==1:
-        	node3= JobNode("node3", ["a3"],funcStyle(funcB)._dic,["x3","y3"], workbasedir)
-        	node4= JobNode("node4", ["a4","b4"],funcStyle(funcB)._dic,["x4"], workbasedir)
-        	node5= JobNode("node5", ["a5","b5"],funcStyle(funcB)._dic,["x5"], workbasedir)
+        	node3= JobNode("node3", ["a3"],funcStyle(funcB, simulator=simulator_localhost),["x3","y3"], workbasedir)
+        	node4= JobNode("node4", ["a4","b4"],funcStyle(funcB, simulator=simulator_localhost),["x4"], workbasedir)
+        	node5= JobNode("node5", ["a5","b5"],funcStyle(funcB, simulator=simulator_localhost),["x5"], workbasedir)
 
         	graph.define(["node1","y1"],["node3","a3"])
         	graph.define(["node3","x3"],["node4","a4"])
@@ -905,35 +975,34 @@ def test1(run=1):
 		nodelist.show()
 
 	if run==2:
-            node2= JobNode("node2", ["a2"],funcStyle(funcB)._dic,["x2"] , workbasedir)
+            node2= JobNode("node2", ["a2"],funcStyle(funcB, simulator=simulator_localhost),["x2"] , workbasedir)
             graph.define(["node1","x1"],["node2","a2"])
             nodelist.append(node2)
-	    loopmerge=JobNode("loopmerge",["m1"],funcStyle(funcmerge)._dic,["x1"],workbasedir, input_operation_type="N_AND")
-	    for i in range(6):
+	    loopmerge=JobNode("loopmerge",["m1"],funcStyle(funcmerge, simulator=simulator_localhost),["x1"],workbasedir, input_operation_type="N_AND")
+	    for i in range(3):
 		name="loop"+str(i)
-		nodeloop=JobNode(name , ["i1"],funcStyle(funcC)._dic,["o1"], workbasedir)
+		nodeloop=JobNode(name , ["i1"],funcStyle(funcC,simulator=simulator_asahi),["o1"], workbasedir)
 		graph.define(["node2","x2"],[name,"i1"])
 		graph.define([name,"o1"],["loopmerge","m1"])
 		nodelist.append(nodeloop)
 	    nodelist.append(loopmerge)
 
 	if run==3:
-                node2= JobNode("node2", ["a2"],funcStyle(funcB)._dic,["x2"], workbasedir )
+                node2= JobNode("node2", ["a2"],funcStyle(funcB, simulator=simulator_localhost),["x2"], workbasedir )
                 graph.define(["node1","x1"],["node2","a2"])
                 nodelist.append(node2)
-		node3=JobNode("node3",["a3"],funcStyle(funcOR)._dic,["x3"], workbasedir, input_operation_type="N_OR",creation_type="dynamic")
-		node4=JobNode("node4",["a4"],funcStyle(funcC)._dic,["x4","y4"],workbasedir , creation_type="dynamic")
+		node3=JobNode("node3",["a3"],funcStyle(funcOR, simulator=simulator_localhost),["x3"], workbasedir, input_operation_type="N_OR",creation_type="dynamic")
+		node4=JobNode("node4",["a4"],funcStyle(funcC, simulator=simulator_localhost),["x4","y4"],workbasedir , creation_type="dynamic")
 		graph.define(["node2","x2"],["node3","a3"],creation="dynamic")
 		graph.define(["node3","x3"],["node4","a4"],creation="dynamic")
 		graph.define(["node4","x4"],["node3","a3"],creation="dynamic")
 
-		node5=JobNode("node5",["a5"],funcStyle(funcB)._dic,[], workbasedir)
+		node5=JobNode("node5",["a5"],funcStyle(funcB, simulator=simulator_localhost),[], workbasedir)
 		graph.define(["node4","y4"],["node5","a5"])
 
 		nodelist.append(node3)
 		nodelist.append(node4)
 		nodelist.append(node5)
-
 
 	nodelist.graphviz()
 
@@ -944,7 +1013,7 @@ def test1(run=1):
         for i in range(11):
                 print( "<-------------------------node status",i )
                 r=nodelist.start()
-		if not r:
+		if r:
 			print ()
 			print ("nothing left" )
 			print ()
