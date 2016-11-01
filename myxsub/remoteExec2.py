@@ -20,6 +20,7 @@ class qsubdicTemplate(object):
                 self._dic[ "localrunfile"] = None
                 self._dic[ "queue_cond" ] = None
                 self._dic[ "id_" ] = None
+                self._dic[ "status" ] = None
 
 class qsubdic_NIMS_qsub2_kino(qsubdicTemplate):
         def __init__(self,id_=None):
@@ -34,6 +35,7 @@ class qsubdic_NIMS_qsub2_kino(qsubdicTemplate):
                 self._dic[ "localrunfile"] = "run2.sh"
                 self._dic[ "queue_cond" ] = {"%%QUEUE%%":"qS", "%%CORE%%":"1", "%%MPI%%":"1", "%%SMP%%":"1", "%%WTIME%%":"0:02:00"}
                 self._dic[ "id_" ] = id_
+                self._dic[ "status" ] = "created"
 
 
 class runscriptTemplate:
@@ -47,8 +49,9 @@ cd $PBS_O_WORKDIR
 . /etc/profile.d/modules.sh
 LANG=C
 module list > _module.txt 2>&1
-/home/kino/work/helloworld/hello
-echo '{"status":"finished"}' > _status.json
+#/home/kino/work/helloworld/hello
+#echo '{"status":"finished"}' > _status.json
+python /home/kino/work/workflow/numeric_file/funcC.py
 """
 	def __init__(self):
 		pass
@@ -186,7 +189,7 @@ class remoteExec:
 				os.chdir(cwd)
 				return  r
 		os.chdir(cwd)
-		self._dic["status"]="no_result"
+		self._dic["status"]="finished"
 		return 0
 
         def qdel( self, jobid):
@@ -255,12 +258,15 @@ class remoteExec:
                 self.restore_workdir()
 
                 self.send_a_file( self._localrunfile )
-                print self.qsub( self._localrunfile )
+                r= self.qsub( self._localrunfile )
                 print self._jobid
                 print "--------------------------------------"
-                for job in self._jobid:
-                        print self.qstat( job )
-                        print job, self._dic
+		job= self._jobid[0]
+                status =  self.qstat( job )
+		print r, self._dic["status"]
+		return  r, self._dic["status"]
+
+		
 
 
 	def qstat_by_json(self):
